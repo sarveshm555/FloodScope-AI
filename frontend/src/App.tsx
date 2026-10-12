@@ -6,8 +6,9 @@ import { SummaryPanel } from './components/SummaryPanel';
 import { ConnectivityPanel } from './components/ConnectivityPanel';
 import { CopilotPanel } from './components/CopilotPanel';
 import { ProcessingStatus, Stage } from './components/ProcessingStatus';
-import { AreaOfInterest, BackendHealth } from './types';
-import { fetchHealth } from './services/api';
+import { SatelliteDiscovery } from './components/SatelliteDiscovery';
+import { AreaOfInterest, BackendHealth, CatalogSearchResponse } from './types';
+import { fetchHealth, searchSatelliteCatalog } from './services/api';
 
 export const App: React.FC = () => {
   const [health, setHealth] = useState<BackendHealth | null>(null);
@@ -16,8 +17,13 @@ export const App: React.FC = () => {
 
   const [selectedArea, setSelectedArea] = useState<AreaOfInterest>(PILOT_AREAS[0]);
   const [eventDate, setEventDate] = useState<string>('2026-08-26');
-  const [discovering, setDiscovering] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'summary' | 'connectivity' | 'copilot'>('summary');
+  
+  // Satellite discovery states
+  const [discoveryData, setDiscoveryData] = useState<CatalogSearchResponse | null>(null);
+  const [discoveryLoading, setDiscoveryLoading] = useState<boolean>(false);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'discovery' | 'summary' | 'connectivity' | 'copilot'>('discovery');
 
   // Pipeline stages
   const [stages, setStages] = useState<Stage[]>([
@@ -43,18 +49,51 @@ export const App: React.FC = () => {
   }, []);
 
   const handleDiscover = () => {
-    setDiscovering(true);
-    // Simulates entering discovery phase in UI while pointing to Milestone 2
-    setTimeout(() => {
-      setDiscovering(false);
-      setStages((prev) =>
-        prev.map((s) =>
-          s.id === 'catalog'
-            ? { ...s, status: 'idle', detail: 'Discovery service configured (Scheduled for Milestone 2)' }
-            : s
-        )
-      );
-    }, 800);
+    setDiscoveryLoading(true);
+    setDiscoveryError(null);
+    setStages((prev) =>
+      prev.map((s) =>
+        s.id === 'catalog'
+          ? { ...s, status: 'running', detail: 'Querying Copernicus Data Space catalog API...' }
+          : s
+      )
+    );
+
+    searchSatelliteCatalog({
+      bbox: selectedArea.bbox,
+      event_date: eventDate,
+      pre_days: 15,
+      post_days: 15,
+      include_sentinel_1: true,
+      include_sentinel_2: true,
+    })
+      .then((res) => {
+        setDiscoveryData(res);
+        setDiscoveryLoading(false);
+        setActiveTab('discovery');
+        setStages((prev) =>
+          prev.map((s) =>
+            s.id === 'catalog'
+              ? {
+                  ...s,
+                  status: 'completed',
+                  detail: `Discovered ${res.total_discovered} products (${res.sentinel_1_count} SAR, ${res.sentinel_2_count} optical)`
+                }
+              : s
+          )
+        );
+      })
+      .catch((err) => {
+        setDiscoveryError(err.message);
+        setDiscoveryLoading(false);
+        setStages((prev) =>
+          prev.map((s) =>
+            s.id === 'catalog'
+              ? { ...s, status: 'failed', detail: `Query error: ${err.message}` }
+              : s
+          )
+        );
+      });
   };
 
   return (
@@ -70,7 +109,7 @@ export const App: React.FC = () => {
             eventDate={eventDate}
             onDateChange={setEventDate}
             onDiscover={handleDiscover}
-            discovering={discovering}
+            discovering={discoveryLoading}
           />
 
           <ProcessingStatus stages={stages} />
@@ -84,7 +123,22 @@ export const App: React.FC = () => {
           </div>
 
           {/* Intelligence Tab Navigation */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 flex items-center space-x-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setActiveTab('discovery')}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'discovery'
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              Satellite Observations
+              {discoveryData && (
+                <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-slate-950/80 text-[10px]">
+                  {discoveryData.total_discovered}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setActiveTab('summary')}
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition ${
@@ -119,6 +173,14 @@ export const App: React.FC = () => {
 
           {/* Active Tab Content */}
           <div>
+            {activeTab === 'discovery' && (
+              <SatelliteDiscovery
+                discoveryData={discoveryData}
+                loading={discoveryLoading}
+                error={discoveryError}
+                onRefresh={handleDiscover}
+              />
+            )}
             {activeTab === 'summary' && <SummaryPanel analysisRun={false} />}
             {activeTab === 'connectivity' && <ConnectivityPanel analysisRun={false} />}
             {activeTab === 'copilot' && <CopilotPanel health={health} analysisRun={false} />}
