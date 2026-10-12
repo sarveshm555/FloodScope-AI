@@ -1,4 +1,9 @@
-import { BackendHealth, CatalogSearchResponse } from '../types';
+import {
+  BackendHealth,
+  CatalogSearchResponse,
+  DataManifest,
+  StorageStatus,
+} from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -6,6 +11,22 @@ export async function fetchHealth(): Promise<BackendHealth> {
   const response = await fetch(`${API_BASE}/api/health`);
   if (!response.ok) {
     throw new Error(`Health check failed with status: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchDataManifest(): Promise<DataManifest> {
+  const response = await fetch(`${API_BASE}/api/downloads/manifest`);
+  if (!response.ok) {
+    throw new Error(`Failed to load manifest: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchStorageStatus(): Promise<StorageStatus> {
+  const response = await fetch(`${API_BASE}/api/downloads/storage-status`);
+  if (!response.ok) {
+    throw new Error(`Failed to check storage status: ${response.status}`);
   }
   return response.json();
 }

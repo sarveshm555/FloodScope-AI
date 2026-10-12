@@ -14,13 +14,23 @@ def validate_live_backend():
         text=True
     )
     try:
-        # Wait for server to bind
-        time.sleep(3.0)
-
-        # 1. Test Health Endpoint
+        # Wait for server to bind with retry loop
         health_url = "http://127.0.0.1:8000/api/health"
-        print(f"\n1. Testing GET {health_url}...")
-        req = urllib.request.Request(health_url, headers={"User-Agent": "System-Validator/1.0"})
+        print(f"\n1. Waiting for server ready on {health_url}...")
+        bound = False
+        for attempt in range(20):
+            try:
+                time.sleep(0.5)
+                req = urllib.request.Request(health_url, headers={"User-Agent": "System-Validator/1.0"})
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    if resp.status == 200:
+                        bound = True
+                        break
+            except Exception:
+                pass
+
+        if not bound:
+            raise RuntimeError("Uvicorn server failed to start within 10 seconds.")
         with urllib.request.urlopen(req, timeout=5) as resp:
             assert resp.status == 200
             body = json.loads(resp.read().decode())
@@ -80,6 +90,32 @@ def validate_live_backend():
             cached_res = json.loads(resp.read().decode())
             assert cached_res["search_id"] == search_id
             print(f"[OK] GET /api/catalog/results/{search_id} passed.")
+
+        # 4. Test Data Manifest Endpoint
+        manifest_url = "http://127.0.0.1:8000/api/downloads/manifest"
+        print(f"\n4. Testing GET {manifest_url}...")
+        req_man = urllib.request.Request(manifest_url, headers={"User-Agent": "System-Validator/1.0"})
+        with urllib.request.urlopen(req_man, timeout=5) as resp:
+            assert resp.status == 200
+            manifest_res = json.loads(resp.read().decode())
+            print(f"Manifest Version: {manifest_res['manifest_version']}")
+            print(f"Total Acquired Products: {len(manifest_res['products'])}")
+            for pid, prod in manifest_res["products"].items():
+                print(f"  - {pid}: {prod['original_filename']} ({prod['file_size_mb']} MB, status: {prod['processing_status']})")
+            assert len(manifest_res["products"]) >= 1
+            print("[OK] GET /api/downloads/manifest passed.")
+
+        # 5. Test Storage Status Endpoint
+        storage_url = "http://127.0.0.1:8000/api/downloads/storage-status"
+        print(f"\n5. Testing GET {storage_url}...")
+        req_stor = urllib.request.Request(storage_url, headers={"User-Agent": "System-Validator/1.0"})
+        with urllib.request.urlopen(req_stor, timeout=5) as resp:
+            assert resp.status == 200
+            stor_res = json.loads(resp.read().decode())
+            print(f"Storage Directory: {stor_res['data_directory']}")
+            print(f"Free Space: {stor_res['free_gb']} GB (Safe: {stor_res['storage_safe_for_downloads']})")
+            assert stor_res["free_gb"] > 5.0
+            print("[OK] GET /api/downloads/storage-status passed.")
 
         print("\nALL LIVE SYSTEM VALIDATIONS PASSED!")
     finally:

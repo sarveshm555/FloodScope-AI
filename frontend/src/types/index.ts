@@ -91,6 +91,63 @@ export interface CatalogSearchResponse {
   data_downloaded: boolean;
 }
 
+export interface RasterValidationReport {
+  file_path: string;
+  file_size_bytes: number;
+  file_size_mb: number;
+  sha256_checksum: string;
+  is_readable: boolean;
+  driver: string;
+  width: number;
+  height: number;
+  band_count: number;
+  dtype: string;
+  crs: string | null;
+  geotransform: number[];
+  bounds: number[];
+  pixel_resolution: number[];
+  nodata_value: number | null;
+  valid_data_percent: number;
+  intersects_aoi: boolean;
+  is_measurement_data: boolean;
+  is_valid_cog: boolean;
+  validation_warnings: string[];
+  validated_at: string;
+}
+
+export interface AcquiredProductManifestEntry {
+  product_id: string;
+  source_catalog: string;
+  acquisition_time: string | null;
+  original_filename: string;
+  local_path: string;
+  file_size_bytes: number;
+  file_size_mb: number;
+  sha256_checksum: string;
+  download_timestamp: string;
+  processing_status: string;
+  validation: RasterValidationReport | null;
+  known_limitations: string[];
+}
+
+export interface DataManifest {
+  manifest_version: string;
+  created_at: string;
+  last_updated_at: string;
+  data_directory: string;
+  aoi_bbox: number[];
+  products: Record<string, AcquiredProductManifestEntry>;
+}
+
+export interface StorageStatus {
+  data_directory: string;
+  total_gb: number;
+  used_gb: number;
+  free_gb: number;
+  free_mb: number;
+  storage_safe_for_downloads: boolean;
+}
+
 export interface AnalysisState {
   status: 'idle' | 'discovering' | 'downloading' | 'processing' | 'completed' | 'failed';
   selectedArea: AreaOfInterest;

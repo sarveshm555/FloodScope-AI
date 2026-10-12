@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.config import settings
 from backend.app.api.health import router as health_router
 from backend.app.api.catalog import router as catalog_router
+from backend.app.api.downloads import router as downloads_router
 
 app = FastAPI(
     title="FloodScope AI Backend",
@@ -34,6 +35,7 @@ app.add_middleware(
 # Include API Routers
 app.include_router(health_router, prefix="/api", tags=["System Health"])
 app.include_router(catalog_router, prefix="/api/catalog", tags=["Satellite Discovery"])
+app.include_router(downloads_router, prefix="/api/downloads", tags=["Data Acquisition"])
 
 
 @app.get("/")

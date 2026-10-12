@@ -7,6 +7,7 @@ import { ConnectivityPanel } from './components/ConnectivityPanel';
 import { CopilotPanel } from './components/CopilotPanel';
 import { ProcessingStatus, Stage } from './components/ProcessingStatus';
 import { SatelliteDiscovery } from './components/SatelliteDiscovery';
+import { DataManifestView } from './components/DataManifestView';
 import { AreaOfInterest, BackendHealth, CatalogSearchResponse } from './types';
 import { fetchHealth, searchSatelliteCatalog } from './services/api';
 
@@ -23,7 +24,7 @@ export const App: React.FC = () => {
   const [discoveryLoading, setDiscoveryLoading] = useState<boolean>(false);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'discovery' | 'summary' | 'connectivity' | 'copilot'>('discovery');
+  const [activeTab, setActiveTab] = useState<'discovery' | 'manifest' | 'summary' | 'connectivity' | 'copilot'>('discovery');
 
   // Pipeline stages
   const [stages, setStages] = useState<Stage[]>([
@@ -132,12 +133,22 @@ export const App: React.FC = () => {
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
-              Satellite Observations
+              Satellite Discovery
               {discoveryData && (
                 <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-slate-950/80 text-[10px]">
                   {discoveryData.total_discovered}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setActiveTab('manifest')}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'manifest'
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              Data Assets &amp; Manifest
             </button>
             <button
               onClick={() => setActiveTab('summary')}
@@ -181,6 +192,7 @@ export const App: React.FC = () => {
                 onRefresh={handleDiscover}
               />
             )}
+            {activeTab === 'manifest' && <DataManifestView />}
             {activeTab === 'summary' && <SummaryPanel analysisRun={false} />}
             {activeTab === 'connectivity' && <ConnectivityPanel analysisRun={false} />}
             {activeTab === 'copilot' && <CopilotPanel health={health} analysisRun={false} />}
