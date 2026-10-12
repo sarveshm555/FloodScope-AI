@@ -159,7 +159,7 @@ python -m pytest tests/unit/ -v
 
 - [x] **Milestone 0: Read-Only Audit** — Environment inspected, CDSE catalog queried, exact Sentinel-1 12-day matching pairs (Aug 16 vs Aug 28) identified, ohsome pre-event query validated (45,275 OSM elements).
 - [x] **Milestone 1: Project Foundation** — Clean FastAPI backend with credential-shielded `/api/health`, complete React/TypeScript/Tailwind dashboard with MapLibre GL JS, verified automated test suite, storage protection via `FLOODSCOPE_DATA_DIR`.
-- [ ] **Milestone 2: Satellite Data Discovery** — Configurable catalog discovery API for Sentinel-1 & Sentinel-2.
+- [x] **Milestone 2: Satellite Data Discovery** — Configurable Copernicus Data Space catalog API (`/api/catalog/search`), geometric AOI intersection with Shapely, automated 12-day SAR change pair matching, bilingual/provenance indicators, interactive frontend discovery panel, 14 passed pytest unit tests with mock HTTP, zero payloads downloaded.
 - [ ] **Milestone 3: Data Acquisition & Validation** — Authorized CDSE download & SHA-256 verification.
 - [ ] **Milestone 4: Geospatial Preprocessing** — Calibration, terrain correction & alignment.
 - [ ] **Milestone 5: Flood & Change Analysis** — Radar backscatter thresholding & flood extent.
