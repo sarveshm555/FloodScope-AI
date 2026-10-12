@@ -155,14 +155,15 @@ class SafeDownloadManager:
             token = self.auth_client.get_access_token()
             headers["Authorization"] = f"Bearer {token}"
 
-        sha256 = hashlib.sha256()
-        total_downloaded = 0
         start_time = time.time()
 
         for attempt in range(1, max_retries + 1):
+            sha256 = hashlib.sha256()
+            total_downloaded = 0
+            temp_path = self.base_dir / f"{destination_filename}.tmp.{uuid.uuid4().hex[:8]}"
             try:
                 logger.info(f"Downloading {destination_filename} (Attempt {attempt}/{max_retries})...")
-                with requests.get(url, headers=headers, stream=True, timeout=(15, 60)) as resp:
+                with requests.get(url, headers=headers, stream=True, timeout=(20, 120)) as resp:
                     if resp.status_code == 401 and authenticated:
                         logger.error("Download unauthorized (401). Access token rejected or expired.")
                         resp.raise_for_status()
