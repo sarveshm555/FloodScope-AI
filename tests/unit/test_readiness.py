@@ -196,3 +196,121 @@ def test_catalog_product_id_discrepancy_resolution(aoi_bbox):
     assert cog_norm.product_type == "IW_GRDH_1S-COG"
     assert safe_norm.product_type == "IW_GRDH_1S"
     assert cog_norm.size_mb < safe_norm.size_mb  # COG is ~28% smaller
+
+
+def test_dem_mosaic_coverage_and_alignment(tmp_path, aoi_bbox):
+    """Verify DEM mosaic creation, alignment, and full geometric containment of pilot AOI."""
+    from rasterio.merge import merge
+    from shapely.geometry import box
+
+    p1 = tmp_path / "tile_s.tif"
+    p2 = tmp_path / "tile_n.tif"
+    w, h = 50, 50
+
+    # Southern tile: 27.0 to 28.0 N
+    t1 = from_bounds(85.0, 27.0, 86.0, 28.0, w, h)
+    d1 = np.full((1, h, w), 500.0, dtype=np.float32)
+    with rasterio.open(str(p1), "w", driver="GTiff", height=h, width=w, count=1, dtype=d1.dtype, crs=CRS.from_epsg(4326), transform=t1) as dst:
+        dst.write(d1)
+
+    # Northern tile: 28.0 to 29.0 N
+    t2 = from_bounds(85.0, 28.0, 86.0, 29.0, w, h)
+    d2 = np.full((1, h, w), 1500.0, dtype=np.float32)
+    with rasterio.open(str(p2), "w", driver="GTiff", height=h, width=w, count=1, dtype=d2.dtype, crs=CRS.from_epsg(4326), transform=t2) as dst:
+        dst.write(d2)
+
+    src1 = rasterio.open(str(p1))
+    src2 = rasterio.open(str(p2))
+    mosaic, out_trans = merge([src1, src2])
+
+    p_mosaic = tmp_path / "mosaic.tif"
+    profile = src1.profile.copy()
+    profile.update(height=mosaic.shape[1], width=mosaic.shape[2], transform=out_trans, nodata=-9999.0)
+    with rasterio.open(str(p_mosaic), "w", **profile) as dst:
+        dst.write(mosaic)
+    src1.close()
+    src2.close()
+
+    # Validate mosaic file
+    with rasterio.open(str(p_mosaic)) as m_src:
+        assert m_src.bounds.left <= aoi_bbox[0]
+        assert m_src.bounds.bottom <= aoi_bbox[1]
+        assert m_src.bounds.right >= aoi_bbox[2]
+        assert m_src.bounds.top >= aoi_bbox[3]
+
+        mosaic_poly = box(*m_src.bounds)
+        aoi_poly = box(*aoi_bbox)
+        assert mosaic_poly.contains(aoi_poly)
+
+
+def test_valid_pixel_vs_geometric_coverage_with_nodata(tmp_path, aoi_bbox):
+    """Verify that geometric coverage does NOT imply valid pixel coverage when nodata is present."""
+    from rasterio.windows import from_bounds as win_from_bounds
+    from rasterio.transform import from_bounds as trans_from_bounds
+    from shapely.geometry import box
+
+    p = tmp_path / "tile_with_holes.tif"
+    w, h = 100, 100
+    # Spatially fully covers AOI
+    t = trans_from_bounds(85.0, 27.5, 86.0, 28.5, w, h)
+    data = np.full((1, h, w), 1000.0, dtype=np.float32)
+
+    # Inject NoData hole directly inside the AOI window (rows 45 to 65, cols 10 to 25)
+    data[0, 48:55, 12:20] = -9999.0
+
+    with rasterio.open(str(p), "w", driver="GTiff", height=h, width=w, count=1, dtype=data.dtype, crs=CRS.from_epsg(4326), transform=t, nodata=-9999.0) as dst:
+        dst.write(data)
+
+    with rasterio.open(str(p)) as src:
+        # Geometric coverage check
+        raster_poly = box(*src.bounds)
+        aoi_poly = box(*aoi_bbox)
+        assert raster_poly.contains(aoi_poly)  # 100% geometric
+
+        # Pixel-level coverage check within AOI window
+        win = win_from_bounds(aoi_bbox[0], aoi_bbox[1], aoi_bbox[2], aoi_bbox[3], src.transform)
+        aoi_data = src.read(1, window=win)
+        nodata_mask = (aoi_data == src.nodata) | np.isnan(aoi_data)
+        nodata_count = int(np.count_nonzero(nodata_mask))
+
+        # Confirms detection of nodata gap despite 100% geometric coverage
+        assert nodata_count > 0
+        valid_pct = ((aoi_data.size - nodata_count) / aoi_data.size) * 100.0
+        assert valid_pct < 100.0
+
+
+def test_sentinel1_access_failure_when_credentials_absent(monkeypatch):
+    """Verify that CDSE download attempts fail explicitly and safely when credentials are unset."""
+    from backend.app.geospatial.downloads import CDSEAuthClient, AuthCredentialsMissingError
+
+    monkeypatch.setenv("CDSE_USERNAME", "")
+    monkeypatch.setenv("CDSE_PASSWORD", "")
+    monkeypatch.setenv("CDSE_CLIENT_ID", "")
+    monkeypatch.setenv("CDSE_CLIENT_SECRET", "")
+
+    client = CDSEAuthClient()
+    with pytest.raises(AuthCredentialsMissingError) as exc_info:
+        client.get_access_token()
+
+    assert "CDSE_USERNAME and CDSE_PASSWORD" in str(exc_info.value)
+    assert "not configured" in str(exc_info.value)
+
+
+def test_safe_handling_of_auth_errors_without_leaking_secrets(monkeypatch):
+    """Verify that redaction masks secrets and tokens from error messages."""
+    from backend.app.geospatial.downloads import redact_secrets
+    import backend.app.core.config as config_module
+
+    mock_secret = "super_secret_token_12345"
+    message = f"Failed to authenticate with CDSE: Bearer {mock_secret} was rejected"
+
+    monkeypatch.setattr(
+        config_module.AppSettings,
+        "get_cdse_credentials",
+        lambda self: {"password": mock_secret, "client_secret": mock_secret}
+    )
+    sanitized = redact_secrets(message)
+    assert mock_secret not in sanitized
+    assert "[REDACTED]" in sanitized
+
+
