@@ -44,14 +44,14 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     { id: 'exposed_buildings', name: 'Exposed Buildings (OSM)', category: 'infrastructure', color: '#dc2626', enabled: false, available: false },
   ]);
 
-  // Update availability based on incoming GeoJSON
+  // Update availability based on incoming GeoJSON with actual features
   useEffect(() => {
     setLayers(prev => prev.map(l => {
-      if (l.id === 'terrain_valleys') return { ...l, available: !!terrainGeojson };
-      if (l.id === 'flood_scenario') return { ...l, available: !!floodScenarioGeojson };
-      if (l.id === 'exposed_roads') return { ...l, available: !!exposedRoadsGeojson };
-      if (l.id === 'exposed_bridges') return { ...l, available: !!exposedBridgesGeojson };
-      if (l.id === 'exposed_buildings') return { ...l, available: !!exposedBuildingsGeojson };
+      if (l.id === 'terrain_valleys') return { ...l, available: !!(terrainGeojson && terrainGeojson.features && terrainGeojson.features.length > 0) };
+      if (l.id === 'flood_scenario') return { ...l, available: !!(floodScenarioGeojson && floodScenarioGeojson.features && floodScenarioGeojson.features.length > 0) };
+      if (l.id === 'exposed_roads') return { ...l, available: !!(exposedRoadsGeojson && exposedRoadsGeojson.features && exposedRoadsGeojson.features.length > 0) };
+      if (l.id === 'exposed_bridges') return { ...l, available: !!(exposedBridgesGeojson && exposedBridgesGeojson.features && exposedBridgesGeojson.features.length > 0) };
+      if (l.id === 'exposed_buildings') return { ...l, available: !!(exposedBuildingsGeojson && exposedBuildingsGeojson.features && exposedBuildingsGeojson.features.length > 0) };
       return l;
     }));
   }, [terrainGeojson, floodScenarioGeojson, exposedRoadsGeojson, exposedBridgesGeojson, exposedBuildingsGeojson]);
@@ -78,10 +78,14 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
         (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(data);
       } else {
         map.addSource(sourceId, { type: 'geojson', data });
+        const isEnabled = layers.find(l => l.id === layerId)?.enabled !== false;
         map.addLayer({
           id: layerId,
           type: type as any,
           source: sourceId,
+          layout: {
+            visibility: isEnabled ? 'visible' : 'none'
+          },
           paint
         });
       }

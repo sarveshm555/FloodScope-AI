@@ -174,3 +174,17 @@ def parse_osm_geojson(osm_data: Dict[str, Any]) -> Dict[str, Any]:
         "amenities": {"type": "FeatureCollection", "features": amenity_features},
         "places": {"type": "FeatureCollection", "features": place_features},
     }
+
+
+_cached_parsed_osm: Optional[Dict[str, Any]] = None
+
+
+def get_parsed_osm_infrastructure(bbox: Optional[List[float]] = None) -> Dict[str, Any]:
+    """Retrieve and parse OSM infrastructure, utilizing memory caching for rapid repeated queries."""
+    global _cached_parsed_osm
+    if _cached_parsed_osm is not None:
+        return _cached_parsed_osm
+    raw = fetch_osm_infrastructure(bbox=bbox or [85.10, 27.85, 85.25, 28.05])
+    _cached_parsed_osm = parse_osm_geojson(raw)
+    return _cached_parsed_osm
+

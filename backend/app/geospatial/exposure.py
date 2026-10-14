@@ -9,9 +9,18 @@ from backend.app.schemas.analysis import InfrastructureExposureSummary
 logger = logging.getLogger("floodscope.exposure")
 
 
-def calculate_line_length_km(line_geom: LineString) -> float:
-    """Calculate geodesic distance in kilometers from EPSG:4326 line geometry."""
-    coords = list(line_geom.coords)
+from shapely.prepared import prep
+
+
+def calculate_line_length_km(geom: Any) -> float:
+    """Calculate geodesic distance in kilometers from EPSG:4326 line geometry (LineString, MultiLineString, GeometryCollection)."""
+    if geom is None or geom.is_empty:
+        return 0.0
+    if hasattr(geom, "geoms"):
+        return sum(calculate_line_length_km(part) for part in geom.geoms)
+    if not hasattr(geom, "coords"):
+        return 0.0
+    coords = list(geom.coords)
     if len(coords) < 2:
         return 0.0
     total_km = 0.0
@@ -24,6 +33,28 @@ def calculate_line_length_km(line_geom: LineString) -> float:
         dy = (lat2 - lat1) * 110.54
         total_km += np.sqrt(dx**2 + dy**2)
     return total_km
+
+
+def extract_linear_geometry(geom: Any) -> Optional[Any]:
+    """Extract clean LineString or MultiLineString from intersection geometry for MapLibre rendering."""
+    if geom is None or geom.is_empty:
+        return None
+    if geom.geom_type in ("LineString", "MultiLineString"):
+        return geom
+    if geom.geom_type == "GeometryCollection":
+        lines = [g for g in geom.geoms if g.geom_type in ("LineString", "MultiLineString") and not g.is_empty]
+        if not lines:
+            return None
+        if len(lines) == 1:
+            return lines[0]
+        flat_lines = []
+        for l in lines:
+            if hasattr(l, "geoms"):
+                flat_lines.extend(list(l.geoms))
+            else:
+                flat_lines.append(l)
+        return MultiLineString(flat_lines)
+    return None
 
 
 def assess_infrastructure_exposure(
@@ -73,6 +104,8 @@ def assess_infrastructure_exposure(
         raise ValueError("No valid geometry could be parsed from flood polygon GeoJSON.")
 
     flood_union = unary_union(flood_polys)
+    prep_flood = prep(flood_union)
+    fminx, fminy, fmaxx, fmaxy = flood_union.bounds
 
     # 1. Road Exposure
     roads_fc = osm_geojson.get("roads", {}).get("features", [])
@@ -85,22 +118,27 @@ def assess_infrastructure_exposure(
             geom = shape(rf["geometry"])
             length_km = calculate_line_length_km(geom)
             total_road_km += length_km
-            if geom.intersects(flood_union):
-                inter = geom.intersection(flood_union)
-                if not inter.is_empty:
-                    exp_km = calculate_line_length_km(inter)
-                    exposed_road_km += exp_km
-                    exposed_road_features.append({
-                        "type": "Feature",
-                        "geometry": mapping(inter),
-                        "properties": {
-                            "osm_id": rf.get("properties", {}).get("osm_id"),
-                            "name": rf.get("properties", {}).get("name"),
-                            "exposed_length_km": round(exp_km, 3),
-                            "status": "potentially_inundated"
-                        }
-                    })
-        except Exception:
+            rminx, rminy, rmaxx, rmaxy = geom.bounds
+            if not (rmaxx < fminx or rminx > fmaxx or rmaxy < fminy or rminy > fmaxy):
+                if prep_flood.intersects(geom):
+                    inter = geom.intersection(flood_union)
+                    if not inter.is_empty:
+                        exp_km = calculate_line_length_km(inter)
+                        line_geom = extract_linear_geometry(inter)
+                        if line_geom is not None and exp_km > 0.0:
+                            exposed_road_km += exp_km
+                            exposed_road_features.append({
+                                "type": "Feature",
+                                "geometry": mapping(line_geom),
+                                "properties": {
+                                    "osm_id": rf.get("properties", {}).get("osm_id"),
+                                    "name": rf.get("properties", {}).get("name", "Unnamed Road"),
+                                    "exposed_length_km": round(exp_km, 3),
+                                    "status": "potentially_inundated"
+                                }
+                            })
+        except Exception as e:
+            logger.debug(f"Error checking road feature: {e}")
             continue
 
     # 2. Bridge Exposure
@@ -110,8 +148,10 @@ def assess_infrastructure_exposure(
     for bf in bridges_fc:
         try:
             geom = shape(bf["geometry"])
-            if geom.intersects(flood_union):
-                exposed_bridge_features.append(bf)
+            bminx, bminy, bmaxx, bmaxy = geom.bounds
+            if not (bmaxx < fminx or bminx > fmaxx or bmaxy < fminy or bminy > fmaxy):
+                if prep_flood.intersects(geom):
+                    exposed_bridge_features.append(bf)
         except Exception:
             continue
 
@@ -119,12 +159,13 @@ def assess_infrastructure_exposure(
     buildings_fc = osm_geojson.get("buildings", {}).get("features", [])
     total_buildings = len(buildings_fc)
     exposed_building_features = []
-    # Sample or batch check
     for b_feat in buildings_fc:
         try:
             geom = shape(b_feat["geometry"])
-            if geom.intersects(flood_union):
-                exposed_building_features.append(b_feat)
+            bminx, bminy, bmaxx, bmaxy = geom.bounds
+            if not (bmaxx < fminx or bminx > fmaxx or bmaxy < fminy or bminy > fmaxy):
+                if prep_flood.intersects(geom):
+                    exposed_building_features.append(b_feat)
         except Exception:
             continue
 
@@ -135,8 +176,10 @@ def assess_infrastructure_exposure(
     for cf in clinics_fc:
         try:
             geom = shape(cf["geometry"])
-            if geom.intersects(flood_union):
-                exposed_clinics.append(cf)
+            cminx, cminy, cmaxx, cmaxy = geom.bounds
+            if not (cmaxx < fminx or cminx > fmaxx or cmaxy < fminy or cminy > fmaxy):
+                if prep_flood.intersects(geom):
+                    exposed_clinics.append(cf)
         except Exception:
             continue
 
@@ -146,12 +189,10 @@ def assess_infrastructure_exposure(
     for pf in places_fc:
         try:
             pt = shape(pf["geometry"])
-            # If settlement is directly in flood zone or near severed bridge
             pname = pf.get("properties", {}).get("name", "Unnamed")
-            if pt.intersects(flood_union):
+            if prep_flood.intersects(pt):
                 isolated_settlements.append(f"{pname} (direct flood zone overlap)")
             else:
-                # Check proximity to cut bridges (< 1.5 km)
                 for eb in exposed_bridge_features:
                     b_geom = shape(eb["geometry"])
                     if pt.distance(b_geom) < 0.015:  # ~1.5km

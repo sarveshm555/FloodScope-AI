@@ -14,7 +14,7 @@ from backend.app.geospatial.terrain import (
     compute_terrain_and_slope,
     generate_hypothetical_flood_scenario,
 )
-from backend.app.geospatial.osm import fetch_osm_infrastructure, parse_osm_geojson
+from backend.app.geospatial.osm import fetch_osm_infrastructure, parse_osm_geojson, get_parsed_osm_infrastructure
 from backend.app.geospatial.exposure import assess_infrastructure_exposure
 from backend.app.reporting.copilot import generate_situation_report
 
@@ -66,8 +66,7 @@ def calculate_exposure(
     try:
         scenario_req = FloodScenarioRequest(water_level_m=water_level_m, max_slope_deg=max_slope_deg)
         scenario_res = generate_hypothetical_flood_scenario(scenario_req)
-        raw_osm = fetch_osm_infrastructure()
-        parsed_osm = parse_osm_geojson(raw_osm)
+        parsed_osm = get_parsed_osm_infrastructure()
         exposure = assess_infrastructure_exposure(scenario_res.geojson, parsed_osm, scenario_res.scenario_name)
         return exposure
     except Exception as e:
@@ -85,8 +84,7 @@ def create_situation_report(
         terrain_res = compute_terrain_and_slope(TerrainAnalysisRequest())
         scenario_req = FloodScenarioRequest(water_level_m=water_level_m, max_slope_deg=max_slope_deg)
         scenario_res = generate_hypothetical_flood_scenario(scenario_req)
-        raw_osm = fetch_osm_infrastructure()
-        parsed_osm = parse_osm_geojson(raw_osm)
+        parsed_osm = get_parsed_osm_infrastructure()
         exposure = assess_infrastructure_exposure(scenario_res.geojson, parsed_osm, scenario_res.scenario_name)
 
         report = generate_situation_report(

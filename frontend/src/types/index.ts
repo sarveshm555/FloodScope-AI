@@ -222,3 +222,30 @@ export interface SituationReportResponse {
   uncertainty_statement: string;
 }
 
+export type AppViewMode = 'globe' | 'analysis';
+
+export interface GlobeMarker {
+  id: string;
+  name: string;
+  region: string;
+  country: string;
+  lat: number;
+  lon: number;
+  status: 'primary_active' | 'illustrative_planned';
+  eventDate?: string;
+  description: string;
+  terrainStatus: string;
+  infrastructureStatus: string;
+  satelliteStatus: string;
+  aoiId?: string;
+}
+
+export interface GlobeCameraPreset {
+  id: string;
+  label: string;
+  lat: number;
+  lon: number;
+  distance: number;
+}
+
+
