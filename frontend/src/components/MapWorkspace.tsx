@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { AreaOfInterest } from '../types';
 import { Layers, Eye, EyeOff, Map, AlertTriangle } from 'lucide-react';
@@ -33,6 +33,8 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<maplibregl.Map | null>(null);
+  const [mapLoaded, setMapLoaded] = useState<boolean>(false);
+
   const [layers, setLayers] = useState<MapLayer[]>([
     { id: 'aoi_boundary', name: 'Pilot AOI Bounding Box', category: 'terrain', color: '#38bdf8', enabled: true, available: true },
     { id: 'terrain_valleys', name: 'Valley Basins (Real DEM)', category: 'terrain', color: '#10b981', enabled: true, available: false },
@@ -54,97 +56,18 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     }));
   }, [terrainGeojson, floodScenarioGeojson, exposedRoadsGeojson, exposedBridgesGeojson, exposedBuildingsGeojson]);
 
-  // Initialize Map
-  useEffect(() => {
-    if (!mapContainer.current || mapInstance.current) return;
-
-    const [minLon, minLat, maxLon, maxLat] = selectedArea.bbox;
-    const centerLon = (minLon + maxLon) / 2;
-    const centerLat = (minLat + maxLat) / 2;
-
-    const map = new maplibregl.Map({
-      container: mapContainer.current,
-      style: {
-        version: 8,
-        sources: {
-          'osm-tiles': {
-            type: 'raster',
-            tiles: [
-              'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-              'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'
-            ],
-            tileSize: 256,
-            attribution: '© OpenStreetMap contributors, © CARTO'
-          }
-        },
-        layers: [
-          {
-            id: 'osm-layer',
-            type: 'raster',
-            source: 'osm-tiles',
-            minzoom: 0,
-            maxzoom: 19
-          }
-        ]
-      },
-      center: [centerLon, centerLat],
-      zoom: 11,
-    });
-
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-    map.on('load', () => {
-      // Add AOI Bounding Box layer
-      const aoiGeojson: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            geometry: {
-              type: 'Polygon',
-              coordinates: [
-                [
-                  [minLon, minLat],
-                  [maxLon, minLat],
-                  [maxLon, maxLat],
-                  [minLon, maxLat],
-                  [minLon, minLat]
-                ]
-              ]
-            },
-            properties: { name: selectedArea.name }
-          }
-        ]
-      };
-
-      map.addSource('aoi-source', { type: 'geojson', data: aoiGeojson });
-      map.addLayer({
-        id: 'aoi_boundary',
-        type: 'line',
-        source: 'aoi-source',
-        paint: {
-          'line-color': '#38bdf8',
-          'line-width': 2,
-          'line-dasharray': [3, 2]
-        }
-      });
-    });
-
-    mapInstance.current = map;
-
-    return () => {
-      map.remove();
-      mapInstance.current = null;
-    };
-  }, []);
-
-  // Update dynamic layers when data changes
-  useEffect(() => {
+  // Helper to safely add or update GeoJSON source & layer
+  const syncLayersToMap = useCallback(() => {
     const map = mapInstance.current;
     if (!map || !map.isStyleLoaded()) return;
 
-    // Helper to safely add or update GeoJSON source & layer
-    const updateGeojsonSource = (sourceId: string, layerId: string, type: 'fill' | 'line' | 'circle', data: any, paint: any) => {
+    const updateGeojsonSource = (
+      sourceId: string,
+      layerId: string,
+      type: 'fill' | 'line' | 'circle',
+      data: any,
+      paint: any
+    ) => {
       if (!data || !data.features || data.features.length === 0) {
         if (map.getLayer(layerId)) map.removeLayer(layerId);
         if (map.getSource(sourceId)) map.removeSource(sourceId);
@@ -210,6 +133,98 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     );
   }, [terrainGeojson, floodScenarioGeojson, exposedRoadsGeojson, exposedBridgesGeojson, exposedBuildingsGeojson]);
 
+  // Initialize Map
+  useEffect(() => {
+    if (!mapContainer.current || mapInstance.current) return;
+
+    const [minLon, minLat, maxLon, maxLat] = selectedArea.bbox;
+    const centerLon = (minLon + maxLon) / 2;
+    const centerLat = (minLat + maxLat) / 2;
+
+    const map = new maplibregl.Map({
+      container: mapContainer.current,
+      style: {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: [
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+          }
+        },
+        layers: [
+          {
+            id: 'osm-layer',
+            type: 'raster',
+            source: 'osm-tiles',
+            minzoom: 0,
+            maxzoom: 19
+          }
+        ]
+      },
+      center: [centerLon, centerLat],
+      zoom: 11,
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    map.on('load', () => {
+      // Add AOI Bounding Box layer
+      const aoiGeojson: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [
+                [
+                  [minLon, minLat],
+                  [maxLon, minLat],
+                  [maxLon, maxLat],
+                  [minLon, maxLat],
+                  [minLon, minLat]
+                ]
+              ]
+            },
+            properties: { name: selectedArea.name }
+          }
+        ]
+      };
+
+      map.addSource('aoi-source', { type: 'geojson', data: aoiGeojson });
+      map.addLayer({
+        id: 'aoi_boundary',
+        type: 'line',
+        source: 'aoi-source',
+        paint: {
+          'line-color': '#38bdf8',
+          'line-width': 2,
+          'line-dasharray': [3, 2]
+        }
+      });
+
+      setMapLoaded(true);
+    });
+
+    mapInstance.current = map;
+
+    return () => {
+      map.remove();
+      mapInstance.current = null;
+    };
+  }, []);
+
+  // Update dynamic layers when data changes or map finishes loading
+  useEffect(() => {
+    if (mapLoaded) {
+      syncLayersToMap();
+    }
+  }, [mapLoaded, syncLayersToMap]);
+
   // Toggle layer visibility
   const toggleLayer = (id: string) => {
     setLayers(prev =>
@@ -234,10 +249,14 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
         <Map className="w-4 h-4 text-sky-400" />
         <span className="font-semibold text-slate-200">{selectedArea.name}</span>
         <span className="text-slate-400">({selectedArea.region})</span>
-        {isScenarioMode && (
+        {isScenarioMode ? (
           <span className="flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-700 text-[10px] font-medium ml-2">
             <AlertTriangle className="w-3 h-3 text-amber-400" />
-            <span>Scenario Mode Active</span>
+            <span>Illustrative Scenario Mode</span>
+          </span>
+        ) : (
+          <span className="flex items-center space-x-1 px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-medium ml-2">
+            <span>Terrain &amp; OSM Baseline</span>
           </span>
         )}
       </div>
@@ -252,7 +271,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
             <Layers className="w-4 h-4 text-sky-400" />
             <span>Map Layers &amp; Evidence</span>
           </div>
-          <span className="text-[10px] text-emerald-400 font-medium">Live Evidence</span>
+          <span className="text-[10px] text-emerald-400 font-medium">Evidence Layers</span>
         </div>
 
         <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -272,9 +291,13 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
                 </span>
               </div>
               <div className="flex items-center space-x-1">
-                {!layer.available && (
+                {!layer.available ? (
                   <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 border border-slate-700">
                     Not Loaded
+                  </span>
+                ) : (
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    Active
                   </span>
                 )}
                 {layer.enabled ? (
@@ -288,7 +311,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
         </div>
 
         <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 leading-tight">
-          Baseline map: OpenStreetMap contributors. Terrain boundaries computed from real Copernicus GLO-30 DEM.
+          Basemap: OpenStreetMap contributors. Terrain derived from Copernicus GLO-30 DEM.
         </div>
       </div>
     </div>

@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ health, loading, error }) => {
             </span>
           </div>
           <p className="text-xs text-slate-400">
-            Evidence-based satellite radar flood mapping &amp; settlement connectivity
+            Geospatial flood intelligence prototype: Copernicus DEM terrain &amp; OSM infrastructure (Sentinel-1 SAR pending acquisition)
           </p>
         </div>
       </div>

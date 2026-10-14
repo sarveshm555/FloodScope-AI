@@ -75,6 +75,9 @@ export const App: React.FC = () => {
         setHealthError(err.message);
         setHealthLoading(false);
       });
+
+    // Automatically run baseline analysis so terrain, OSM infrastructure, and scenarios load immediately
+    handleRunFullAnalysis();
   }, []);
 
   const handleDiscover = () => {
