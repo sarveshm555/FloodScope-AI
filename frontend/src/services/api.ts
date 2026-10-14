@@ -3,6 +3,10 @@ import {
   CatalogSearchResponse,
   DataManifest,
   StorageStatus,
+  TerrainAnalysisResponse,
+  FloodScenarioResponse,
+  InfrastructureExposureSummary,
+  SituationReportResponse,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -74,3 +78,83 @@ export async function searchSatelliteCatalog(
 
   return response.json();
 }
+
+export async function fetchTerrainAnalysis(
+  bbox: [number, number, number, number],
+  slopeThreshold: number = 5.0,
+  elevationThreshold: number = 800.0
+): Promise<TerrainAnalysisResponse> {
+  const response = await fetch(`${API_BASE}/api/analysis/terrain`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bbox,
+      slope_threshold_deg: slopeThreshold,
+      elevation_threshold_m: elevationThreshold,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Terrain analysis failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchFloodScenario(
+  waterLevelM: number = 500.0,
+  maxSlopeDeg: number = 8.0,
+  bbox: [number, number, number, number] = [85.10, 27.85, 85.25, 28.05]
+): Promise<FloodScenarioResponse> {
+  const response = await fetch(`${API_BASE}/api/analysis/scenario`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      water_level_m: waterLevelM,
+      max_slope_deg: maxSlopeDeg,
+      aoi_bbox: bbox,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Scenario generation failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchOsmInfrastructure(
+  bbox: [number, number, number, number] = [85.10, 27.85, 85.25, 28.05]
+): Promise<Record<string, any>> {
+  const [w, s, e, n] = bbox;
+  const response = await fetch(`${API_BASE}/api/analysis/osm-infrastructure?w=${w}&s=${s}&e=${e}&n=${n}`);
+  if (!response.ok) {
+    throw new Error(`OSM fetch failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchExposureSummary(
+  waterLevelM: number = 500.0,
+  maxSlopeDeg: number = 8.0
+): Promise<InfrastructureExposureSummary> {
+  const response = await fetch(
+    `${API_BASE}/api/analysis/exposure?water_level_m=${waterLevelM}&max_slope_deg=${maxSlopeDeg}`,
+    { method: 'POST' }
+  );
+  if (!response.ok) {
+    throw new Error(`Exposure calculation failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchSituationReport(
+  waterLevelM: number = 500.0,
+  maxSlopeDeg: number = 8.0
+): Promise<SituationReportResponse> {
+  const response = await fetch(
+    `${API_BASE}/api/analysis/situation-report?water_level_m=${waterLevelM}&max_slope_deg=${maxSlopeDeg}`,
+    { method: 'POST' }
+  );
+  if (!response.ok) {
+    throw new Error(`Report generation failed (${response.status})`);
+  }
+  return response.json();
+}
+

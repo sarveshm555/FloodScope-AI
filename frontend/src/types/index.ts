@@ -154,3 +154,71 @@ export interface AnalysisState {
   eventDate: string;
   activeTab: 'discovery' | 'summary' | 'connectivity' | 'copilot';
 }
+
+export interface TerrainStatistics {
+  elevation_min_m: number;
+  elevation_max_m: number;
+  elevation_mean_m: number;
+  slope_min_deg: number;
+  slope_max_deg: number;
+  slope_mean_deg: number;
+  total_pixels: number;
+  low_slope_pixels: number;
+  low_slope_area_km2: number;
+  valley_candidate_pixels: number;
+  valley_candidate_area_km2: number;
+}
+
+export interface TerrainAnalysisResponse {
+  source_dem: string;
+  crs: string;
+  pixel_resolution_m: number[];
+  bounds: number[];
+  statistics: TerrainStatistics;
+  limitations: string[];
+  disclaimer: string;
+  geojson_layer?: Record<string, any>;
+}
+
+export interface FloodScenarioResponse {
+  is_hypothetical: boolean;
+  scenario_name: string;
+  hypothesis_statement: string;
+  water_level_threshold_m: number;
+  max_slope_deg: number;
+  extent_area_km2: number;
+  geojson: Record<string, any>;
+  limitations: string[];
+  disclaimer: string;
+}
+
+export interface InfrastructureExposureSummary {
+  is_confirmed_damage: boolean;
+  flood_scenario_name: string;
+  total_buildings_mapped: number;
+  exposed_buildings_count: number;
+  exposed_buildings_percent: number;
+  total_road_length_km: number;
+  exposed_road_length_km: number;
+  exposed_road_percent: number;
+  total_bridges_mapped: number;
+  exposed_bridges_count: number;
+  health_facilities_mapped: number;
+  exposed_health_facilities_count: number;
+  isolated_settlements: string[];
+  limitations: string[];
+  disclaimer: string;
+  geojson_layers: Record<string, any>;
+}
+
+export interface SituationReportResponse {
+  analysis_timestamp: string;
+  aoi_name: string;
+  data_sources: string[];
+  is_hypothetical_scenario: boolean;
+  summary_metrics: Record<string, any>;
+  english_report: string;
+  nepali_report: string;
+  uncertainty_statement: string;
+}
+

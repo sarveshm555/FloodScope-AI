@@ -1,17 +1,30 @@
 import React, { useState } from 'react';
-import { Bot, FileText, Send, Sparkles } from 'lucide-react';
-import { BackendHealth } from '../types';
+import { Bot, FileText, Sparkles, Copy, Check, AlertTriangle } from 'lucide-react';
+import { BackendHealth, SituationReportResponse } from '../types';
 
 interface CopilotPanelProps {
   health: BackendHealth | null;
-  analysisRun: boolean;
+  reportData?: SituationReportResponse | null;
+  loading?: boolean;
 }
 
-export const CopilotPanel: React.FC<CopilotPanelProps> = ({ health, analysisRun }) => {
+export const CopilotPanel: React.FC<CopilotPanelProps> = ({
+  health,
+  reportData,
+  loading = false,
+}) => {
   const [language, setLanguage] = useState<'en' | 'ne'>('en');
-  const [question, setQuestion] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const llmActive = health?.services.llm_provider_configured ?? false;
+
+  const handleCopy = () => {
+    if (!reportData) return;
+    const text = language === 'en' ? reportData.english_report : reportData.nepali_report;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
@@ -55,59 +68,58 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({ health, analysisRun 
             LLM Copilot ({health?.services.llm_provider_name}) + Schema Grounding
           </span>
         ) : (
-          <span className="flex items-center text-amber-400 font-medium">
-            Deterministic Rule-Based Generator (Offline Safe)
+          <span className="flex items-center text-emerald-400 font-medium">
+            Verified Deterministic Evidence Engine (Offline Safe)
           </span>
         )}
       </div>
 
-      {!analysisRun ? (
+      {loading ? (
+        <div className="bg-slate-950/70 border border-dashed border-slate-800 rounded-lg p-6 text-center space-y-2">
+          <Bot className="w-6 h-6 text-sky-400 mx-auto animate-bounce" />
+          <p className="text-xs text-slate-300">Generating grounded bilingual situation report...</p>
+        </div>
+      ) : !reportData ? (
         <div className="space-y-4">
           <div className="bg-slate-950/70 border border-dashed border-slate-800 rounded-lg p-5 text-center">
             <FileText className="w-6 h-6 text-slate-500 mx-auto mb-2" />
             <h3 className="text-xs font-semibold text-slate-300">
-              {language === 'en' ? 'No Validated Results Available' : 'कुनै प्रमाणीकृत नतिजा उपलब्ध छैन'}
+              {language === 'en' ? 'Awaiting Validated Spatial Data' : 'कुनै प्रमाणीकृत नतिजा उपलब्ध छैन'}
             </h3>
             <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
               {language === 'en'
-                ? 'The Situation-Report Copilot requires validated spatial outputs before generating reports. Every numerical claim is verified against computed data.'
-                : 'स्थिति प्रतिवेदन तयार गर्न प्रमाणित भौगोलिक परिणामहरू आवश्यक पर्दछ। प्रत्येक संख्यात्मक विवरण गणना गरिएको तथ्याङ्कबाट प्रमाणित गरिन्छ।'}
-            </p>
-          </div>
-
-          {/* Interactive Q&A Input (Awaiting Pipeline) */}
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-slate-400">
-              {language === 'en' ? 'Ask Geospatial Copilot:' : 'भौगोलिक कोपाइलटलाई सोध्नुहोस्:'}
-            </label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                disabled
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder={
-                  language === 'en'
-                    ? 'e.g., Which river crossing was impacted along Highway F021?'
-                    : 'जस्तै: राजमार्ग F021 मा कुन पुल प्रभावित भएको छ?'
-                }
-                className="flex-1 bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-400 cursor-not-allowed placeholder:text-slate-600"
-              />
-              <button
-                disabled
-                className="p-2 bg-slate-800 text-slate-600 rounded-lg cursor-not-allowed border border-slate-700"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-400">
-              {language === 'en'
-                ? 'Strict Grounding: The Copilot rejects unsupported numerical claims and distinguishes candidate flood extent from confirmed damage.'
-                : 'कडा प्रमाणीकरण: कोपाइलटले अप्रमाणित संख्यात्मक दाबीहरू अस्वीकार गर्दछ।'}
+                ? 'Execute the analysis pipeline to generate verifiable situation reports in English and Nepali.'
+                : 'स्थिति प्रतिवेदन तयार गर्न भौगोलिक विश्लेषण सुरु गर्नुहोस्।'}
             </p>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>Provenance: {reportData.data_sources.length} Verified Sources</span>
+            <button
+              onClick={handleCopy}
+              className="flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? 'Copied' : 'Copy Report'}</span>
+            </button>
+          </div>
+
+          <div className="p-4 bg-slate-950 rounded-lg border border-slate-800 font-sans text-xs text-slate-300 leading-relaxed max-h-80 overflow-y-auto whitespace-pre-wrap">
+            {language === 'en' ? reportData.english_report : reportData.nepali_report}
+          </div>
+
+          {reportData.is_hypothetical_scenario && (
+            <div className="p-2.5 rounded bg-amber-950/40 border border-amber-800/60 text-[11px] text-amber-300/90 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>Grounding Notice:</strong> This report is grounded in real Copernicus DEM topography and real OpenStreetMap infrastructure using a parameterized river stage scenario.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
