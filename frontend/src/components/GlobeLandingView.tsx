@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { EarthGlobe } from './EarthGlobe';
 import { GLOBE_MARKERS, GLOBE_CAMERA_PRESETS } from '../data/globeLocations';
-import { GlobeMarker } from '../types';
+import { GlobeMarker, SarFloodCandidatesResponse } from '../types';
 import {
   Satellite,
   Compass,
@@ -14,9 +14,10 @@ import {
 
 interface GlobeLandingViewProps {
   onEnterAnalysis: (aoiId: string) => void;
+  sarData?: SarFloodCandidatesResponse | null;
 }
 
-export const GlobeLandingView: React.FC<GlobeLandingViewProps> = ({ onEnterAnalysis }) => {
+export const GlobeLandingView: React.FC<GlobeLandingViewProps> = ({ onEnterAnalysis, sarData }) => {
   const [selectedMarkerId, setSelectedMarkerId] = useState<string>('trishuli_nepal');
 
   const handleSelectMarker = (marker: GlobeMarker) => {
@@ -43,10 +44,17 @@ export const GlobeLandingView: React.FC<GlobeLandingViewProps> = ({ onEnterAnaly
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-1.5 text-amber-300 bg-amber-950/60 border border-amber-800/80 px-2.5 py-0.5 rounded text-[11px]">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sentinel-1 SAR Pending Acquisition</span>
-          </div>
+          {sarData?.available ? (
+            <div className="flex items-center space-x-1.5 text-cyan-300 bg-cyan-950/60 border border-cyan-800/80 px-2.5 py-0.5 rounded text-[11px]">
+              <Satellite className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Sentinel-1 SAR Analysis Available</span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-1.5 text-amber-300 bg-amber-950/60 border border-amber-800/80 px-2.5 py-0.5 rounded text-[11px]">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+              <span>Sentinel-1 SAR Pending Acquisition</span>
+            </div>
+          )}
 
           <button
             onClick={() => onEnterAnalysis('trishuli_nepal')}
@@ -66,6 +74,7 @@ export const GlobeLandingView: React.FC<GlobeLandingViewProps> = ({ onEnterAnaly
           selectedMarkerId={selectedMarkerId}
           onSelectMarker={handleSelectMarker}
           onExploreAoi={handleExploreAoi}
+          sarAvailable={sarData?.available}
         />
 
         {/* Floating Right Context Drawer: Geospatial Readiness Checklist */}
@@ -109,15 +118,29 @@ export const GlobeLandingView: React.FC<GlobeLandingViewProps> = ({ onEnterAnaly
             <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                  <Satellite className="w-3.5 h-3.5 text-amber-400" />
+                  <Satellite className={`w-3.5 h-3.5 ${sarData?.available ? 'text-cyan-400' : 'text-amber-400'}`} />
                   Sentinel-1 C-SAR Radar
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-400 border border-amber-800 font-medium">
-                  Pending Pass
-                </span>
+                {sarData?.available ? (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-medium">
+                    Analysis Available
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-400 border border-amber-800 font-medium">
+                    Pending Pass
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-400 leading-snug">
-                Catalog discovered 8 candidate products. Downlink credentials required for SAR change detection.
+                {sarData?.available && sarData.summary ? (
+                  <span>
+                    Sentinel-1 SAR bitemporal change analysis available: {sarData.summary.results.candidate_flood_area_km2.toFixed(2)} km² candidate inundation zone detected (Aug 16 vs 28).
+                  </span>
+                ) : (
+                  <span>
+                    Catalog discovered 8 candidate products. Downlink credentials required for SAR change detection.
+                  </span>
+                )}
               </p>
             </div>
           </div>

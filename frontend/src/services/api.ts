@@ -7,13 +7,30 @@ import {
   FloodScenarioResponse,
   InfrastructureExposureSummary,
   SituationReportResponse,
+  SarFloodCandidatesResponse,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+export const API_BASE = rawApiBase.replace(/\/+$/, '');
+
+export function getApiBaseUrl(): string {
+  return API_BASE || '(Local Proxy: http://127.0.0.1:8000)';
+}
 
 export async function fetchHealth(): Promise<BackendHealth> {
-  const response = await fetch(`${API_BASE}/api/health`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/api/health`);
+  } catch (err: any) {
+    throw new Error(`Unable to connect to FloodScope backend API: ${err.message || 'Network unreachable'}`);
+  }
+
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(
+        'Backend service unreachable (404 Not Found). In production, configure VITE_API_BASE_URL in your environment. Locally, ensure the FastAPI server is running at http://127.0.0.1:8000.'
+      );
+    }
     throw new Error(`Health check failed with status: ${response.status}`);
   }
   return response.json();
@@ -154,6 +171,14 @@ export async function fetchSituationReport(
   );
   if (!response.ok) {
     throw new Error(`Report generation failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchSarFloodCandidates(): Promise<SarFloodCandidatesResponse> {
+  const response = await fetch(`${API_BASE}/api/analysis/sar-flood-candidates`);
+  if (!response.ok) {
+    throw new Error(`Failed to load SAR flood candidates (${response.status})`);
   }
   return response.json();
 }

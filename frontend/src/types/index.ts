@@ -128,6 +128,8 @@ export interface AcquiredProductManifestEntry {
   processing_status: string;
   validation: RasterValidationReport | null;
   known_limitations: string[];
+  product_category?: 'source' | 'derived' | string;
+  format_label?: string;
 }
 
 export interface DataManifest {
@@ -246,6 +248,51 @@ export interface GlobeCameraPreset {
   lat: number;
   lon: number;
   distance: number;
+}
+
+export interface SarFloodCandidatesResponse {
+  available: boolean;
+  message?: string;
+  summary?: {
+    metadata: {
+      analysis_type: string;
+      study_area: string;
+      aoi_bbox: number[];
+      pre_event_product: string;
+      pre_event_date: string;
+      post_event_product: string;
+      post_event_date: string;
+      polarization: string;
+      orbit: string;
+      temporal_baseline_days: number;
+      grid_resolution_m: number;
+      crs: string;
+      calibration: string;
+      speckle_filter: string;
+      dem_topographic_filter: string;
+      change_threshold_db: string;
+      permanent_water_exclusion: string;
+      pipeline_version?: string;
+      area_calculation_method?: string;
+      generated_at: string;
+    };
+    results: {
+      candidate_flood_area_km2: number;
+      permanent_water_area_km2: number;
+      candidate_flood_pixel_count: number;
+      infrastructure_exposure: {
+        exposed_road_length_km: number;
+        total_mapped_road_km: number;
+        exposed_bridges_count: number;
+        total_mapped_bridges: number;
+        exposed_buildings_count: number;
+        total_mapped_buildings: number;
+        exposed_clinics_count: number;
+        total_mapped_clinics: number;
+      };
+    };
+  };
+  geojson?: Record<string, any>;
 }
 
 

@@ -1,5 +1,4 @@
-import React from 'react';
-import { BackendHealth, AppViewMode } from '../types';
+import { BackendHealth, AppViewMode, SarFloodCandidatesResponse } from '../types';
 import { Waves, Satellite, CheckCircle2, AlertTriangle, ShieldCheck, Globe, Activity } from 'lucide-react';
 
 interface HeaderProps {
@@ -8,6 +7,7 @@ interface HeaderProps {
   error: string | null;
   currentView: AppViewMode;
   onViewChange: (view: AppViewMode) => void;
+  sarData?: SarFloodCandidatesResponse | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   error,
   currentView,
   onViewChange,
+  sarData,
 }) => {
   return (
     <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30">
@@ -31,8 +32,13 @@ export const Header: React.FC<HeaderProps> = ({
                 Track B: Spaceborne Flood Intelligence
               </span>
             </div>
-            <p className="text-xs text-slate-400">
-              Geospatial flood intelligence prototype: Copernicus DEM terrain &amp; OSM infrastructure (Sentinel-1 SAR pending acquisition)
+            <p className="text-xs text-slate-300 font-medium">
+              Terrain-Aware Flood Intelligence{' '}
+              <span className="text-slate-400 font-normal">
+                {sarData?.available
+                  ? '— Copernicus DEM, OSM Infrastructure & Sentinel-1 SAR Change Detection'
+                  : '— Copernicus DEM & OSM Infrastructure (Sentinel-1 SAR Pending Acquisition)'}
+              </span>
             </p>
           </div>
         </div>

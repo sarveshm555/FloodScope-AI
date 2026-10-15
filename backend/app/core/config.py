@@ -58,8 +58,9 @@ class AppSettings(BaseModel):
     @property
     def has_cdse_credentials(self) -> bool:
         """Indicates whether optional Copernicus Data Space credentials are configured."""
-        has_user_pass = bool(self._cdse_username and self._cdse_password)
-        has_client_cred = bool(self._cdse_client_id and self._cdse_client_secret)
+        creds = self.get_cdse_credentials()
+        has_user_pass = bool(creds.get("username") and creds.get("password"))
+        has_client_cred = bool(creds.get("client_id") and creds.get("client_secret"))
         return has_user_pass or has_client_cred
 
     @property
@@ -81,11 +82,15 @@ class AppSettings(BaseModel):
 
     def get_cdse_credentials(self) -> dict:
         """Secure getter for CDSE service credentials."""
+        u = os.getenv("CDSE_USERNAME") if "CDSE_USERNAME" in os.environ else self._cdse_username
+        p = os.getenv("CDSE_PASSWORD") if "CDSE_PASSWORD" in os.environ else self._cdse_password
+        cid = os.getenv("CDSE_CLIENT_ID") if "CDSE_CLIENT_ID" in os.environ else self._cdse_client_id
+        csec = os.getenv("CDSE_CLIENT_SECRET") if "CDSE_CLIENT_SECRET" in os.environ else self._cdse_client_secret
         return {
-            "username": self._cdse_username,
-            "password": self._cdse_password,
-            "client_id": self._cdse_client_id,
-            "client_secret": self._cdse_client_secret
+            "username": u or None,
+            "password": p or None,
+            "client_id": cid or None,
+            "client_secret": csec or None
         }
 
     def get_llm_key(self, provider: Optional[str] = None) -> Optional[str]:

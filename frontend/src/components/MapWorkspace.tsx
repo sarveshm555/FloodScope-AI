@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { AreaOfInterest } from '../types';
-import { Layers, Eye, EyeOff, Map, AlertTriangle } from 'lucide-react';
+import { Layers, Eye, EyeOff, Map, AlertTriangle, LocateFixed } from 'lucide-react';
 
 interface MapWorkspaceProps {
   selectedArea: AreaOfInterest;
   terrainGeojson?: Record<string, any> | null;
   floodScenarioGeojson?: Record<string, any> | null;
+  sarFloodCandidatesGeojson?: Record<string, any> | null;
   exposedRoadsGeojson?: Record<string, any> | null;
   exposedBridgesGeojson?: Record<string, any> | null;
   exposedBuildingsGeojson?: Record<string, any> | null;
@@ -26,6 +27,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
   selectedArea,
   terrainGeojson,
   floodScenarioGeojson,
+  sarFloodCandidatesGeojson,
   exposedRoadsGeojson,
   exposedBridgesGeojson,
   exposedBuildingsGeojson,
@@ -37,16 +39,23 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
 
   const [layers, setLayers] = useState<MapLayer[]>([
     { id: 'aoi_boundary', name: 'Pilot AOI Bounding Box', category: 'terrain', color: '#38bdf8', enabled: true, available: true },
+    { id: 'sar_flood_candidates', name: 'Sentinel-1 SAR Flood Candidates (Aug 16 vs 28)', category: 'scenario', color: '#06b6d4', enabled: true, available: false },
     { id: 'terrain_valleys', name: 'Valley Basins (Real DEM)', category: 'terrain', color: '#10b981', enabled: true, available: false },
-    { id: 'flood_scenario', name: 'Hypothetical Flood Extent', category: 'scenario', color: '#0284c7', enabled: true, available: false },
+    { id: 'flood_scenario', name: 'Hypothetical Flood Extent', category: 'scenario', color: '#0284c7', enabled: false, available: false },
     { id: 'exposed_roads', name: 'Exposed Roads (OSM)', category: 'infrastructure', color: '#f59e0b', enabled: true, available: false },
     { id: 'exposed_bridges', name: 'Exposed Bridges (OSM)', category: 'infrastructure', color: '#ef4444', enabled: true, available: false },
-    { id: 'exposed_buildings', name: 'Exposed Buildings (OSM)', category: 'infrastructure', color: '#dc2626', enabled: false, available: false },
+    { id: 'exposed_buildings', name: 'Exposed Buildings (OSM)', category: 'infrastructure', color: '#dc2626', enabled: true, available: false },
   ]);
+
+  const layersRef = useRef<MapLayer[]>(layers);
+  useEffect(() => {
+    layersRef.current = layers;
+  }, [layers]);
 
   // Update availability based on incoming GeoJSON with actual features
   useEffect(() => {
     setLayers(prev => prev.map(l => {
+      if (l.id === 'sar_flood_candidates') return { ...l, available: !!(sarFloodCandidatesGeojson && sarFloodCandidatesGeojson.features && sarFloodCandidatesGeojson.features.length > 0) };
       if (l.id === 'terrain_valleys') return { ...l, available: !!(terrainGeojson && terrainGeojson.features && terrainGeojson.features.length > 0) };
       if (l.id === 'flood_scenario') return { ...l, available: !!(floodScenarioGeojson && floodScenarioGeojson.features && floodScenarioGeojson.features.length > 0) };
       if (l.id === 'exposed_roads') return { ...l, available: !!(exposedRoadsGeojson && exposedRoadsGeojson.features && exposedRoadsGeojson.features.length > 0) };
@@ -54,7 +63,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       if (l.id === 'exposed_buildings') return { ...l, available: !!(exposedBuildingsGeojson && exposedBuildingsGeojson.features && exposedBuildingsGeojson.features.length > 0) };
       return l;
     }));
-  }, [terrainGeojson, floodScenarioGeojson, exposedRoadsGeojson, exposedBridgesGeojson, exposedBuildingsGeojson]);
+  }, [sarFloodCandidatesGeojson, terrainGeojson, floodScenarioGeojson, exposedRoadsGeojson, exposedBridgesGeojson, exposedBuildingsGeojson]);
 
   // Helper to safely add or update GeoJSON source & layer
   const syncLayersToMap = useCallback(() => {
@@ -70,15 +79,31 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     ) => {
       if (!data || !data.features || data.features.length === 0) {
         if (map.getLayer(layerId)) map.removeLayer(layerId);
-        if (map.getSource(sourceId)) map.removeSource(sourceId);
+        if (map.getSource(sourceId)) {
+          // Only remove source if no other layer is currently using it
+          const layersUsingSource = map.getStyle().layers?.filter(l => (l as any).source === sourceId) || [];
+          if (layersUsingSource.length === 0) {
+            map.removeSource(sourceId);
+          }
+        }
         return;
       }
 
+      // Check if this layer or parent layer is enabled
+      const parentId = layerId.replace('_outline', '');
+      const isEnabled = layersRef.current.find(l => l.id === parentId || l.id === layerId)?.enabled !== false;
+
+      // 1. Manage GeoJSON Source
       if (map.getSource(sourceId)) {
         (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(data);
       } else {
         map.addSource(sourceId, { type: 'geojson', data });
-        const isEnabled = layers.find(l => l.id === layerId)?.enabled !== false;
+      }
+
+      // 2. Manage Layer
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, 'visibility', isEnabled ? 'visible' : 'none');
+      } else {
         map.addLayer({
           id: layerId,
           type: type as any,
@@ -91,7 +116,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       }
     };
 
-    // 1. Terrain Valleys
+    // 1. Terrain Valleys (Basin floors)
     updateGeojsonSource(
       'terrain-valleys-src',
       'terrain_valleys',
@@ -100,7 +125,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       { 'fill-color': '#10b981', 'fill-opacity': 0.35 }
     );
 
-    // 2. Flood Scenario
+    // 2. Flood Scenario (Illustrative hydrodynamic model)
     updateGeojsonSource(
       'flood-scenario-src',
       'flood_scenario',
@@ -109,7 +134,25 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       { 'fill-color': '#0284c7', 'fill-opacity': 0.65 }
     );
 
-    // 3. Exposed Roads
+    // 3a. Sentinel-1 SAR Flood Candidates — Vivid Cyan Fill
+    updateGeojsonSource(
+      'sar-flood-candidates-src',
+      'sar_flood_candidates',
+      'fill',
+      sarFloodCandidatesGeojson,
+      { 'fill-color': '#00e5ff', 'fill-opacity': 0.70 }
+    );
+
+    // 3b. Sentinel-1 SAR Flood Candidates — High-Contrast Vector Outline (2.5px)
+    updateGeojsonSource(
+      'sar-flood-candidates-src',
+      'sar_flood_candidates_outline',
+      'line',
+      sarFloodCandidatesGeojson,
+      { 'line-color': '#00e5ff', 'line-width': 2.5, 'line-opacity': 1.0 }
+    );
+
+    // 4. Exposed Roads
     updateGeojsonSource(
       'exposed-roads-src',
       'exposed_roads',
@@ -118,7 +161,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       { 'line-color': '#f59e0b', 'line-width': 3.5 }
     );
 
-    // 4. Exposed Bridges
+    // 5. Exposed Bridges
     updateGeojsonSource(
       'exposed-bridges-src',
       'exposed_bridges',
@@ -127,7 +170,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       { 'line-color': '#ef4444', 'line-width': 5.0 }
     );
 
-    // 5. Exposed Buildings
+    // 6. Exposed Buildings
     updateGeojsonSource(
       'exposed-buildings-src',
       'exposed_buildings',
@@ -135,7 +178,26 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       exposedBuildingsGeojson,
       { 'fill-color': '#dc2626', 'fill-opacity': 0.7 }
     );
-  }, [terrainGeojson, floodScenarioGeojson, exposedRoadsGeojson, exposedBridgesGeojson, exposedBuildingsGeojson]);
+
+    // Reorder layers so SAR candidate polygons and outlines are ALWAYS visible above broad terrain/scenario fills
+    const visualOrder = [
+      'terrain_valleys',
+      'flood_scenario',
+      'aoi_boundary',
+      'sar_flood_candidates',
+      'sar_flood_candidates_outline',
+      'exposed_roads',
+      'exposed_bridges',
+      'exposed_buildings',
+    ];
+    for (const lId of visualOrder) {
+      if (map.getLayer(lId)) {
+        map.moveLayer(lId);
+      }
+    }
+  }, [sarFloodCandidatesGeojson, terrainGeojson, floodScenarioGeojson, exposedRoadsGeojson, exposedBridgesGeojson, exposedBuildingsGeojson]);
+
+  const popupRef = useRef<maplibregl.Popup | null>(null);
 
   // Initialize Map
   useEffect(() => {
@@ -214,13 +276,108 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       setMapLoaded(true);
     });
 
+    // Click listener for SAR candidate inundation polygons
+    map.on('click', (e) => {
+      const activeSarLayers = ['sar_flood_candidates', 'sar_flood_candidates_outline'].filter(
+        id => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'
+      );
+      if (activeSarLayers.length === 0) return;
+
+      const features = map.queryRenderedFeatures(e.point, { layers: activeSarLayers });
+      if (!features || features.length === 0) return;
+
+      const feat = features[0];
+      const props = feat.properties || {};
+
+      const areaKm2 = props.area_km2 !== undefined ? Number(props.area_km2) : null;
+      const areaDisplay = areaKm2 !== null
+        ? (props.area_sqm !== undefined
+            ? `${areaKm2} km² (${Number(props.area_sqm).toLocaleString()} m²)`
+            : `${areaKm2} km² <span style="color: #64748b; font-size: 10px;">(~${Math.round(areaKm2 * 1e6).toLocaleString()} m², approx. conversion)</span>`)
+        : 'N/A';
+
+      const dropMetricHtml = props.mean_drop_db !== undefined
+        ? `<div><strong>Measured Drop (Δσ°):</strong> ${props.mean_drop_db} dB</div>`
+        : `<div><strong>Detection Criterion:</strong> Δσ° ≤ -2.5 dB drop (classification threshold)</div>`;
+
+      if (popupRef.current) {
+        popupRef.current.remove();
+      }
+
+      const html = `
+        <div style="font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; color: #0f172a; line-height: 1.4; min-width: 200px;">
+          <div style="font-weight: 700; color: #0891b2; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+            <span>🛰️</span>
+            <span>SAR Candidate Inundation</span>
+          </div>
+          <div style="margin-bottom: 3px;"><strong>Feature ID:</strong> ${feat.id || 'N/A'}</div>
+          <div style="margin-bottom: 3px;"><strong>Candidate Area:</strong> ${areaDisplay}</div>
+          <div style="margin-bottom: 3px;">${dropMetricHtml}</div>
+          <div style="margin-bottom: 3px;"><strong>Observation:</strong> ${props.pre_event_date ? String(props.pre_event_date).slice(0, 10) : '2026-08-16'} → ${props.post_event_date ? String(props.post_event_date).slice(0, 10) : '2026-08-28'}</div>
+          <div style="margin-bottom: 3px;"><strong>Sensor:</strong> ${props.source || 'Sentinel-1 C-SAR'}</div>
+          <div style="margin-top: 6px; padding: 4px 6px; background: #ecfeff; border: 1px solid #a5f3fc; border-radius: 4px; color: #0e7490; font-size: 10px;">
+            ⚠️ Candidate surface water zone. Not confirmed flooding or structural damage.
+          </div>
+        </div>
+      `;
+
+      popupRef.current = new maplibregl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '280px' })
+        .setLngLat(e.lngLat)
+        .setHTML(html)
+        .addTo(map);
+    });
+
+    // Cursor pointer on hover over SAR candidate polygons
+    map.on('mousemove', (e) => {
+      const activeSarLayers = ['sar_flood_candidates', 'sar_flood_candidates_outline'].filter(
+        id => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'
+      );
+      if (activeSarLayers.length === 0) {
+        map.getCanvas().style.cursor = '';
+        return;
+      }
+      const features = map.queryRenderedFeatures(e.point, { layers: activeSarLayers });
+      map.getCanvas().style.cursor = features.length > 0 ? 'pointer' : '';
+    });
+
+    // Reset cursor when mouse leaves map canvas
+    map.on('mouseout', () => {
+      map.getCanvas().style.cursor = '';
+    });
+
     mapInstance.current = map;
 
     return () => {
+      if (popupRef.current) {
+        popupRef.current.remove();
+        popupRef.current = null;
+      }
       map.remove();
       mapInstance.current = null;
     };
   }, []);
+
+  // Camera bounds helper for SAR candidates
+  const fitToSarCandidates = useCallback(() => {
+    const map = mapInstance.current;
+    if (!map) return;
+    map.fitBounds(
+      [
+        [85.10, 27.85], // Southwest [lng, lat]
+        [85.25, 28.05], // Northeast [lng, lat]
+      ],
+      { padding: 60, duration: 1200, maxZoom: 14 }
+    );
+  }, []);
+
+  // Auto-fit bounds once when SAR candidates are loaded
+  const hasAutoFittedSar = useRef<boolean>(false);
+  useEffect(() => {
+    if (mapLoaded && sarFloodCandidatesGeojson && sarFloodCandidatesGeojson.features && sarFloodCandidatesGeojson.features.length > 0 && !hasAutoFittedSar.current) {
+      hasAutoFittedSar.current = true;
+      fitToSarCandidates();
+    }
+  }, [mapLoaded, sarFloodCandidatesGeojson, fitToSarCandidates]);
 
   // Update dynamic layers when data changes or map finishes loading
   useEffect(() => {
@@ -234,10 +391,19 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     setLayers(prev =>
       prev.map(l => {
         if (l.id === id) {
+          if (!l.available) return l;
           const nextState = !l.enabled;
           const map = mapInstance.current;
-          if (map && map.getLayer(id)) {
-            map.setLayoutProperty(id, 'visibility', nextState ? 'visible' : 'none');
+          if (map) {
+            if (map.getLayer(id)) {
+              map.setLayoutProperty(id, 'visibility', nextState ? 'visible' : 'none');
+            }
+            if (map.getLayer(`${id}_outline`)) {
+              map.setLayoutProperty(`${id}_outline`, 'visibility', nextState ? 'visible' : 'none');
+            }
+          }
+          if (id === 'sar_flood_candidates' && !nextState && popupRef.current) {
+            popupRef.current.remove();
           }
           return { ...l, enabled: nextState };
         }
@@ -294,14 +460,31 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
                   {layer.name}
                 </span>
               </div>
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-1.5">
+                {layer.id === 'sar_flood_candidates' && layer.available && (
+                  <button
+                    type="button"
+                    title="Zoom camera to SAR candidate inundation zone"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fitToSarCandidates();
+                    }}
+                    className="p-1 rounded hover:bg-slate-700 text-sky-400 hover:text-sky-300 transition"
+                  >
+                    <LocateFixed className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {!layer.available ? (
                   <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 border border-slate-700">
                     Not Loaded
                   </span>
+                ) : layer.enabled ? (
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium">
+                    Visible
+                  </span>
                 ) : (
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
-                    Active
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700 font-medium">
+                    Hidden
                   </span>
                 )}
                 {layer.enabled ? (

@@ -16,6 +16,7 @@ import {
   FloodScenarioResponse,
   InfrastructureExposureSummary,
   SituationReportResponse,
+  SarFloodCandidatesResponse,
   AppViewMode,
 } from './types';
 import {
@@ -25,8 +26,9 @@ import {
   fetchFloodScenario,
   fetchExposureSummary,
   fetchSituationReport,
+  fetchSarFloodCandidates,
 } from './services/api';
-import { Play, RotateCw, AlertTriangle, Globe } from 'lucide-react';
+import { Play, RotateCw, RotateCcw, AlertTriangle, Globe } from 'lucide-react';
 
 const GlobeLandingView = React.lazy(() =>
   import('./components/GlobeLandingView').then((m) => ({ default: m.GlobeLandingView }))
@@ -50,6 +52,7 @@ export const App: React.FC = () => {
   // Computed data assets
   const [terrainData, setTerrainData] = useState<TerrainAnalysisResponse | null>(null);
   const [scenarioData, setScenarioData] = useState<FloodScenarioResponse | null>(null);
+  const [sarData, setSarData] = useState<SarFloodCandidatesResponse | null>(null);
   const [exposureData, setExposureData] = useState<InfrastructureExposureSummary | null>(null);
   const [reportData, setReportData] = useState<SituationReportResponse | null>(null);
 
@@ -89,6 +92,13 @@ export const App: React.FC = () => {
       initialRunRef.current = true;
       handleRunFullAnalysis();
     }
+
+    // Load candidate SAR satellite change detection results if available on backend
+    fetchSarFloodCandidates()
+      .then((data) => {
+        setSarData(data);
+      })
+      .catch((err) => console.warn('Could not load SAR flood candidates on initial mount:', err));
   }, []);
 
   const handleDiscover = () => {
@@ -228,6 +238,28 @@ export const App: React.FC = () => {
         )
       );
 
+      // Step 8: Spaceborne SAR Change Detection
+      try {
+        const sarRes = await fetchSarFloodCandidates();
+        setSarData(sarRes);
+        if (sarRes.available && sarRes.summary) {
+          const candArea = sarRes.summary.results.candidate_flood_area_km2.toFixed(2);
+          setStages((prev) =>
+            prev.map((s) =>
+              s.id === 'acquisition'
+                ? {
+                    ...s,
+                    status: 'completed',
+                    detail: `Copernicus DEM verified; Sentinel-1 SAR candidate analysis loaded (${candArea} km²)`
+                  }
+                : s
+            )
+          );
+        }
+      } catch (sarErr) {
+        console.warn('SAR flood candidates fetch skipped:', sarErr);
+      }
+
       setActiveTab('summary');
     } catch (err: any) {
       setAnalysisError(err.message || 'Pipeline execution failed');
@@ -251,6 +283,7 @@ export const App: React.FC = () => {
         error={healthError}
         currentView={currentView}
         onViewChange={setCurrentView}
+        sarData={sarData}
       />
 
       {currentView === 'globe' ? (
@@ -265,6 +298,7 @@ export const App: React.FC = () => {
           }
         >
           <GlobeLandingView
+            sarData={sarData}
             onEnterAnalysis={(aoiId) => {
               const target = PILOT_AREAS.find((a) => a.id === aoiId) || PILOT_AREAS[0];
               setSelectedArea(target);
@@ -293,6 +327,45 @@ export const App: React.FC = () => {
               AOI Bounding Box: [{selectedArea.bbox.join(', ')}]
             </span>
           </div>
+
+          {/* Backend Connection Notice Banner */}
+          {healthError && (
+            <div className="xl:col-span-12 bg-amber-950/40 border border-amber-800/80 rounded-xl p-4 text-xs text-amber-200/95 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-amber-300 flex items-center gap-2">
+                    <span>Backend Connection Notice</span>
+                    <span className="text-[10px] bg-amber-900/80 text-amber-300 border border-amber-700/80 px-2 py-0.2 rounded font-mono">Offline / Unconfigured</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                    The FastAPI geospatial backend is currently unreachable. When running locally, start it via <code className="bg-slate-900 px-1.5 py-0.5 rounded text-sky-300 border border-slate-700">uvicorn backend.app.main:app --host 127.0.0.1 --port 8000</code>. On Vercel, configure <code className="bg-slate-900 px-1.5 py-0.5 rounded text-sky-300 border border-slate-700">VITE_API_BASE_URL</code> in deployment environment variables. 3D Earth Globe and offline information views remain fully accessible.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setHealthLoading(true);
+                  setHealthError(null);
+                  fetchHealth()
+                    .then((data) => {
+                      setHealth(data);
+                      setHealthLoading(false);
+                      handleRunFullAnalysis();
+                    })
+                    .catch((err) => {
+                      setHealthError(err.message);
+                      setHealthLoading(false);
+                    });
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-800/80 hover:bg-amber-700 text-amber-100 font-semibold text-xs transition flex-shrink-0 flex items-center space-x-1.5 border border-amber-600/60"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+                <span>Retry Backend</span>
+              </button>
+            </div>
+          )}
+
         {/* Left Column: Configuration, Scenario Controls & Pipeline Status */}
         <div className="xl:col-span-4 space-y-6">
           <AreaSelector
@@ -316,7 +389,7 @@ export const App: React.FC = () => {
             <div className="space-y-3 text-xs">
               <div>
                 <div className="flex justify-between text-slate-300 mb-1">
-                  <span>River Stage Threshold (Elevation):</span>
+                  <span className="font-medium">River Stage Threshold (Elevation):</span>
                   <span className="font-mono text-sky-400 font-bold">{waterLevelM} m</span>
                 </div>
                 <input
@@ -329,12 +402,15 @@ export const App: React.FC = () => {
                   disabled={analyzing}
                   className="w-full accent-sky-500 cursor-pointer"
                 />
-                <span className="text-[10px] text-slate-500">Trishuli valley floor begins at ~455m</span>
+                <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>Trishuli valley floor: ~455 m</span>
+                  <span>Range: 460 m – 750 m</span>
+                </div>
               </div>
 
               <div>
                 <div className="flex justify-between text-slate-300 mb-1">
-                  <span>Max Inundation Slope:</span>
+                  <span className="font-medium">Max Inundation Slope:</span>
                   <span className="font-mono text-emerald-400 font-bold">{maxSlopeDeg}°</span>
                 </div>
                 <input
@@ -347,7 +423,27 @@ export const App: React.FC = () => {
                   disabled={analyzing}
                   className="w-full accent-emerald-500 cursor-pointer"
                 />
-                <span className="text-[10px] text-slate-500">Excludes unrealistic steep valley wall flooding</span>
+                <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>Excludes steep valley walls</span>
+                  <span>Cutoff: 2° – 15°</span>
+                </div>
+              </div>
+
+              {/* Reset to Baseline Button */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWaterLevelM(500.0);
+                    setMaxSlopeDeg(8.0);
+                  }}
+                  disabled={analyzing || (waterLevelM === 500.0 && maxSlopeDeg === 8.0)}
+                  className="text-[11px] text-slate-400 hover:text-sky-300 disabled:opacity-40 disabled:hover:text-slate-400 flex items-center space-x-1 transition cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset to Baseline (500m, 8°)</span>
+                </button>
+                <span className="text-[10px] text-slate-500 font-mono">Baseline: 500m / 8°</span>
               </div>
             </div>
 
@@ -392,6 +488,7 @@ export const App: React.FC = () => {
               selectedArea={selectedArea}
               terrainGeojson={terrainData?.geojson_layer}
               floodScenarioGeojson={scenarioData?.geojson}
+              sarFloodCandidatesGeojson={sarData?.geojson}
               exposedRoadsGeojson={exposureData?.geojson_layers?.exposed_roads}
               exposedBridgesGeojson={exposureData?.geojson_layers?.exposed_bridges}
               exposedBuildingsGeojson={exposureData?.geojson_layers?.exposed_buildings}
@@ -464,6 +561,7 @@ export const App: React.FC = () => {
               <SummaryPanel
                 terrainData={terrainData}
                 exposureData={exposureData}
+                sarData={sarData}
                 isScenarioMode={!!scenarioData}
               />
             )}

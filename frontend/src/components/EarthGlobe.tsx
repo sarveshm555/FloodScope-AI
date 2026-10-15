@@ -19,6 +19,7 @@ interface EarthGlobeProps {
   selectedMarkerId: string | null;
   onSelectMarker: (marker: GlobeMarker) => void;
   onExploreAoi: (aoiId: string) => void;
+  sarAvailable?: boolean;
 }
 
 // Convert geographic lat/lon (degrees) to 3D Cartesian coordinates on sphere of radius R
@@ -37,6 +38,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
   selectedMarkerId,
   onSelectMarker,
   onExploreAoi,
+  sarAvailable = false,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [webglSupported, setWebglSupported] = useState<boolean>(true);
@@ -763,7 +765,11 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
           </div>
           <div className="flex items-center justify-between text-slate-300">
             <span className="text-slate-400">Sentinel-1 SAR:</span>
-            <span className="font-medium text-amber-400">Pending Acquisition</span>
+            {sarAvailable ? (
+              <span className="font-medium text-cyan-400">Analysis Available</span>
+            ) : (
+              <span className="font-medium text-amber-400">Pending Acquisition</span>
+            )}
           </div>
         </div>
 

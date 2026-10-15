@@ -236,7 +236,7 @@ class SafeDownloadManager:
         estimated_size_mb: Optional[float] = None
     ) -> Dict[str, Any]:
         """Download product from CDSE OData $value endpoint."""
-        url = f"https://catalogue.dataspace.copernicus.eu/odata/v1/Products({product_id})/$value"
+        url = f"https://download.dataspace.copernicus.eu/odata/v1/Products({product_id})/$value"
         dest_filename = f"{product_name}.zip" if not product_name.endswith((".zip", ".tif")) else product_name
         expected_bytes = int(estimated_size_mb * 1024 * 1024) if estimated_size_mb else None
         return self.download_file(

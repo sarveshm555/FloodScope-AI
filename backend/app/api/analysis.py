@@ -2,6 +2,8 @@ import logging
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app.core.config import settings
+
 from backend.app.schemas.analysis import (
     TerrainAnalysisRequest,
     TerrainAnalysisResponse,
@@ -16,6 +18,7 @@ from backend.app.geospatial.terrain import (
 )
 from backend.app.geospatial.osm import fetch_osm_infrastructure, parse_osm_geojson, get_parsed_osm_infrastructure
 from backend.app.geospatial.exposure import assess_infrastructure_exposure
+from backend.app.geospatial.sar import load_cached_sar_flood_candidates
 from backend.app.reporting.copilot import generate_situation_report
 
 logger = logging.getLogger("floodscope.api.analysis")
@@ -97,3 +100,13 @@ def create_situation_report(
     except Exception as e:
         logger.error(f"Situation report generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Situation report failed: {str(e)}")
+
+
+@router.get("/sar-flood-candidates")
+def get_sar_flood_candidates():
+    """Retrieve verified Sentinel-1 SAR bitemporal candidate flood polygons and exposure metrics."""
+    try:
+        return load_cached_sar_flood_candidates(settings.data_dir)
+    except Exception as exc:
+        logger.error(f"Failed to read SAR flood candidates: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to read SAR flood candidates: {str(exc)}")

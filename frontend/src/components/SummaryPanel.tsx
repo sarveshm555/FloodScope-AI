@@ -1,19 +1,21 @@
 import React from 'react';
-import { Building2, Navigation, Anchor, ShieldAlert, Mountain, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { TerrainAnalysisResponse, InfrastructureExposureSummary } from '../types';
+import { Building2, Navigation, Anchor, ShieldAlert, Mountain, AlertTriangle, CheckCircle2, Radio } from 'lucide-react';
+import { TerrainAnalysisResponse, InfrastructureExposureSummary, SarFloodCandidatesResponse } from '../types';
 
 interface SummaryPanelProps {
   terrainData?: TerrainAnalysisResponse | null;
   exposureData?: InfrastructureExposureSummary | null;
+  sarData?: SarFloodCandidatesResponse | null;
   isScenarioMode?: boolean;
 }
 
 export const SummaryPanel: React.FC<SummaryPanelProps> = ({
   terrainData,
   exposureData,
+  sarData,
   isScenarioMode = false,
 }) => {
-  if (!terrainData && !exposureData) {
+  if (!terrainData && !exposureData && !sarData) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
         <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
@@ -45,6 +47,66 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
           </span>
         )}
       </div>
+
+      {/* Sentinel-1 Spaceborne Change Detection Section */}
+      {sarData?.available && sarData.summary && (
+        <div className="space-y-3 p-4 bg-gradient-to-br from-cyan-950/40 via-slate-950 to-slate-950 rounded-xl border border-cyan-800/60 shadow-lg">
+          <div className="flex items-center justify-between border-b border-cyan-900/40 pb-2.5">
+            <div className="flex items-center space-x-2">
+              <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+              <span className="text-xs font-semibold text-cyan-200">
+                Sentinel-1 SAR Satellite Change Detection (Observed Pair)
+              </span>
+            </div>
+            <span className="text-[10px] bg-cyan-900/60 text-cyan-300 border border-cyan-700 px-2 py-0.5 rounded font-mono">
+              12-Day Repeat-Pass
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+            <div className="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800">
+              <span className="text-slate-400 text-[10px]">Observation Dates</span>
+              <div className="text-xs font-semibold text-slate-200 mt-0.5">
+                {sarData.summary.metadata.pre_event_date} → {sarData.summary.metadata.post_event_date}
+              </div>
+              <span className="text-[10px] text-cyan-400">Track 85 (IW Ascending)</span>
+            </div>
+
+            <div className="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800">
+              <span className="text-slate-400 text-[10px]">Candidate Inundation</span>
+              <div className="text-base font-bold text-cyan-400 mt-0.5">
+                {sarData.summary.results.candidate_flood_area_km2.toFixed(2)} km²
+              </div>
+              <span className="text-[10px] text-slate-500">
+                {sarData.summary.results.candidate_flood_pixel_count.toLocaleString()} pixels (10m)
+              </span>
+            </div>
+
+            <div className="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800">
+              <span className="text-slate-400 text-[10px]">Baseline Riverbed</span>
+              <div className="text-base font-bold text-slate-300 mt-0.5">
+                {sarData.summary.results.permanent_water_area_km2.toFixed(2)} km²
+              </div>
+              <span className="text-[10px] text-slate-500">Pre-event persistent water</span>
+            </div>
+
+            <div className="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800">
+              <span className="text-slate-400 text-[10px]">SAR Roads &amp; Buildings</span>
+              <div className="text-base font-bold text-amber-400 mt-0.5">
+                {sarData.summary.results.infrastructure_exposure.exposed_road_length_km.toFixed(2)} km
+              </div>
+              <span className="text-[10px] text-slate-400">
+                {sarData.summary.results.infrastructure_exposure.exposed_buildings_count} bldgs in candidate zone
+              </span>
+            </div>
+          </div>
+
+          <div className="text-[10px] text-cyan-300/80 flex items-center gap-1.5 pt-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+            <span>Calibrated backscatter difference (Δσ° ≤ -2.5 dB) with DEM topographic slope filter (≤10°) applied.</span>
+          </div>
+        </div>
+      )}
 
       {/* Real Topography Section */}
       {stats && (
@@ -135,11 +197,15 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
       )}
 
       {/* Ground Truth & Disclaimer Banner */}
-      <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 text-[11px] text-slate-400 space-y-1">
-        <p className="font-semibold text-slate-300">Methodological Transparency Notice:</p>
+      <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 text-[11px] text-slate-400 space-y-1.5">
+        <p className="font-semibold text-slate-300">Methodological Transparency &amp; Evidence Integrity Notice:</p>
         <p>
-          Calculations reflect spatial intersection between pre-event OpenStreetMap features and a hydro-topographic flood scenario on verified Copernicus DEM terrain.
-          <strong className="text-amber-400 font-normal"> Intersections represent potential water inundation exposure, not confirmed structural destruction.</strong>
+          Calculations reflect spatial intersection between pre-event OpenStreetMap infrastructure and verified Copernicus DEM terrain / Sentinel-1 SAR radar backscatter change.
+        </p>
+        <p>
+          <strong className="text-amber-400 font-normal">
+            All satellite-detected and hydro-topographic footprints represent candidate surface water inundation zones. Spatial intersections indicate potential exposure, strictly distinguished from confirmed structural damage or building collapse.
+          </strong>
         </p>
       </div>
     </div>

@@ -50,9 +50,17 @@ class AcquiredProductManifestEntry(BaseModel):
     file_size_mb: float
     sha256_checksum: str
     download_timestamp: str
-    processing_status: str  # 'acquired', 'validated', 'validation_failed'
+    processing_status: str  # 'acquired', 'validated', 'validation_failed', 'derived_product'
     validation: Optional[RasterValidationReport] = None
     known_limitations: List[str] = Field(default_factory=list)
+    product_category: Optional[str] = Field(
+        default=None,
+        description="'source' for raw acquisitions and baseline tiles, 'derived' for generated rasters, vectors, and summaries."
+    )
+    format_label: Optional[str] = Field(
+        default=None,
+        description="Human-readable file format classification (e.g. 'Cloud Optimized GeoTIFF', 'GeoTIFF', 'GeoJSON FeatureCollection', 'JSON analysis summary', 'Sentinel-1 archive or packaged product')."
+    )
 
 
 class DataManifest(BaseModel):
