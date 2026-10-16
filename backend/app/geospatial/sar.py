@@ -60,6 +60,7 @@ from rasterio.features import shapes
 from shapely.geometry import shape, Polygon, MultiPolygon, mapping, box
 from shapely.ops import unary_union
 
+from backend.app.core.config import PROJECT_ROOT
 from backend.app.geospatial.osm import parse_osm_geojson, get_parsed_osm_infrastructure
 from backend.app.geospatial.exposure import assess_infrastructure_exposure
 

@@ -53,6 +53,11 @@ class AppSettings(BaseModel):
         path = Path(self.data_dir_str)
         if not path.is_absolute():
             path = (PROJECT_ROOT / path).resolve()
+        # Fallback to repo-relative data/ directory if configured path does not exist
+        if not path.exists():
+            repo_data = (PROJECT_ROOT / "data").resolve()
+            if repo_data.exists():
+                return repo_data
         return path
 
     @property

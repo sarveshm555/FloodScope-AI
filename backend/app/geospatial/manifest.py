@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime, timezone
 
-from backend.app.core.config import settings
+from backend.app.core.config import settings, PROJECT_ROOT
 from backend.app.schemas.downloads import DataManifest, AcquiredProductManifestEntry
 
 logger = logging.getLogger("floodscope.manifest")
@@ -13,8 +13,13 @@ logger = logging.getLogger("floodscope.manifest")
 def get_manifest_path() -> Path:
     """Return destination path for data manifest file."""
     manifest_dir = settings.data_dir
+    manifest_file = manifest_dir / "manifest.json"
+    if not manifest_file.exists():
+        repo_manifest = (PROJECT_ROOT / "data" / "manifest.json").resolve()
+        if repo_manifest.exists():
+            return repo_manifest
     manifest_dir.mkdir(parents=True, exist_ok=True)
-    return manifest_dir / "manifest.json"
+    return manifest_file
 
 
 def load_manifest() -> DataManifest:

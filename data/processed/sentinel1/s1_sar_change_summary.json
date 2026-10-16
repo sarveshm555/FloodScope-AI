@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "analysis_type": "Sentinel-1 SAR Bitemporal Change Detection",
+    "study_area": "Trishuli River Basin, Nuwakot & Rasuwa, Nepal",
+    "aoi_bbox": [
+      85.1,
+      27.85,
+      85.25,
+      28.05
+    ],
+    "pre_event_product": "S1D_IW_GRDH_1SDV_20260816T122141_20260816T122206_004151_007980_B091_COG",
+    "pre_event_date": "2026-08-16T12:21:41Z",
+    "post_event_product": "S1D_IW_GRDH_1SDV_20260828T122141_20260828T122206_004326_007FA4_C73B_COG",
+    "post_event_date": "2026-08-28T12:21:41Z",
+    "polarization": "VV",
+    "orbit": "Ascending Orbit Track 85",
+    "temporal_baseline_days": 12.0,
+    "grid_resolution_m": 10.0,
+    "crs": "EPSG:4326",
+    "calibration": "Radiometric sigma0 conversion (A=708.0)",
+    "speckle_filter": "3x3 Median Spatial Filter",
+    "dem_topographic_filter": "Copernicus GLO-30 Slope <= 10 deg, Elevation <= 1200m",
+    "change_threshold_db": "<= -2.5 dB drop and post-event <= -14.5 dB",
+    "permanent_water_exclusion": "Pre-event baseline <= -16.0 dB",
+    "generated_at": "2026-10-15 06:06:18 UTC",
+    "pipeline_version": "0.1.0",
+    "area_calculation_method": "WGS84 ellipsoidal geodesic",
+    "polygon_filtering_threshold": "5 pixels (~547 m^2 at ~28 deg N, 5e-8 deg^2)",
+    "spherical_reference_area_km2": 0.628
+  },
+  "results": {
+    "candidate_flood_area_km2": 0.625,
+    "permanent_water_area_km2": 2.649,
+    "candidate_flood_pixel_count": 5735,
+    "infrastructure_exposure": {
+      "exposed_road_length_km": 1.24,
+      "total_mapped_road_km": 219.49,
+      "exposed_bridges_count": 0,
+      "total_mapped_bridges": 60,
+      "exposed_buildings_count": 360,
+      "total_mapped_buildings": 56914,
+      "exposed_clinics_count": 0,
+      "total_mapped_clinics": 9
+    }
+  }
+}

@@ -9,7 +9,7 @@ import rasterio
 from rasterio.transform import from_bounds
 from fastapi.testclient import TestClient
 from backend.app.main import app
-from backend.app.core.config import AppSettings, settings
+from backend.app.core.config import AppSettings, settings, PROJECT_ROOT
 import backend.app.geospatial.sar as sar_module
 from backend.app.geospatial.manifest import load_manifest
 from backend.app.schemas.downloads import DataManifest, AcquiredProductManifestEntry
@@ -631,5 +631,56 @@ def test_manifest_schema_derived_product_validation():
     )
     assert entry.product_id == "test_derived_artifact"
     assert entry.processing_status == "derived_product"
+
+
+def test_sar_candidates_from_deployment_data_directory(client):
+    """Verify that the backend endpoint successfully discovers the three artifacts from repository data/ directory."""
+    repo_data_dir = (PROJECT_ROOT / "data").resolve()
+    assert (repo_data_dir / "processed" / "sentinel1" / "s1_sar_flood_candidates_10m.tif").exists()
+    assert (repo_data_dir / "processed" / "sentinel1" / "s1_sar_flood_candidates.geojson").exists()
+    assert (repo_data_dir / "processed" / "sentinel1" / "s1_sar_change_summary.json").exists()
+
+    with patch.object(AppSettings, "data_dir", new_callable=PropertyMock, return_value=repo_data_dir):
+        response = client.get("/api/analysis/sar-flood-candidates")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("available") is True
+        assert "summary" in data
+        assert "geojson" in data
+        assert data["summary"]["results"]["candidate_flood_pixel_count"] == 5735
+        assert data["summary"]["results"]["candidate_flood_area_km2"] == 0.625
+        assert len(data["geojson"]["features"]) == 295
+
+
+def test_sar_candidates_fallback_to_repo_when_configured_path_missing(client):
+    """Verify that when configured data directory does not exist (e.g. Render without D: drive), backend falls back to repository data/ directory."""
+    with patch.object(settings, "data_dir_str", "/nonexistent/cloud/path/data"):
+        assert settings.data_dir == (PROJECT_ROOT / "data").resolve()
+        response = client.get("/api/analysis/sar-flood-candidates")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("available") is True
+        assert data["summary"]["results"]["candidate_flood_pixel_count"] == 5735
+
+
+def test_repo_manifest_contains_deployment_sar_products():
+    """Verify that data/manifest.json records the three derived SAR products with valid hashes and sizes."""
+    repo_manifest_file = (PROJECT_ROOT / "data" / "manifest.json").resolve()
+    assert repo_manifest_file.exists()
+    with open(repo_manifest_file, "r", encoding="utf-8") as f:
+        mf = json.load(f)
+
+    assert mf["data_directory"] == "data"
+    for did in [
+        "S1_SAR_Flood_Candidates_Raster_10m",
+        "S1_SAR_Flood_Candidates_Vector_GeoJSON",
+        "S1_SAR_Change_Summary_Report",
+    ]:
+        assert did in mf["products"]
+        prod = mf["products"][did]
+        assert prod["processing_status"] == "derived_product"
+        rel_p = Path(prod["local_path"])
+        assert (PROJECT_ROOT / rel_p).exists()
+
 
 

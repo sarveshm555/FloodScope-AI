@@ -1,8 +1,8 @@
 {
   "manifest_version": "1.0.0",
   "created_at": "2026-10-12T14:49:29.108759+00:00",
-  "last_updated_at": "2026-10-13T13:40:17.068509+00:00",
-  "data_directory": "D:\\FloodScope-Data",
+  "last_updated_at": "2026-10-16T17:00:00+00:00",
+  "data_directory": "data",
   "aoi_bbox": [
     85.1,
     27.85,
@@ -60,8 +60,10 @@
         "validated_at": "2026-10-12T14:49:29.102143+00:00"
       },
       "known_limitations": [
-        "Digital Surface Model; represents top canopy and surface elevation rather than bare earth DTM."
-      ]
+        "Source DEM product; retained on local workstation storage (D:\\FloodScope-Data), not bundled in lightweight cloud deployment image."
+      ],
+      "product_category": "source",
+      "format_label": "Cloud Optimized GeoTIFF"
     },
     "Copernicus_DSM_COG_10_N28_00_E085_00": {
       "product_id": "Copernicus_DSM_COG_10_N28_00_E085_00",
@@ -113,8 +115,10 @@
         "validated_at": "2026-10-12T16:30:26.039097+00:00"
       },
       "known_limitations": [
-        "Digital Surface Model; adjacent northern tile (28-29N, 85-86E) covering northern Trishuli basin."
-      ]
+        "Source DEM product; retained on local workstation storage (D:\\FloodScope-Data), not bundled in lightweight cloud deployment image."
+      ],
+      "product_category": "source",
+      "format_label": "Cloud Optimized GeoTIFF"
     },
     "Copernicus_DSM_GLO_30_Trishuli_Mosaic": {
       "product_id": "Copernicus_DSM_GLO_30_Trishuli_Mosaic",
@@ -161,13 +165,147 @@
         "valid_data_percent": 100.0,
         "intersects_aoi": true,
         "is_measurement_data": true,
-        "is_valid_cog": true,
-        "validation_warnings": [],
-        "validated_at": "2026-10-13T13:40:17.062145+00:00"
+        "is_valid_cog": false,
+        "validation_warnings": [
+          "Raster has internal tiling and overviews, but IFD directory is located at the tail of the file (offset 113446544); lacks linearized ghost IFD header required for strict COG HTTP range streaming."
+        ],
+        "validated_at": "2026-10-15T15:32:16.757202+00:00"
       },
       "known_limitations": [
-        "Mosaicked from Copernicus DEM GLO-30 tiles N27_00_E085_00 and N28_00_E085_00 with 100% valid pixel coverage inside pilot AOI."
-      ]
+        "Source DEM product; retained on local workstation storage (D:\\FloodScope-Data), not bundled in lightweight cloud deployment image."
+      ],
+      "product_category": "derived",
+      "format_label": "Tiled GeoTIFF with Overviews"
+    },
+    "04db2c11-1319-4808-adaa-da7f7ccbbd4f": {
+      "product_id": "04db2c11-1319-4808-adaa-da7f7ccbbd4f",
+      "source_catalog": "Copernicus Data Space Ecosystem (CDSE)",
+      "acquisition_time": "2026-08-16T12:21:41.058298Z",
+      "original_filename": "S1D_IW_GRDH_1SDV_20260816T122141_20260816T122206_004151_007980_B091_COG.zip",
+      "local_path": "D:\\FloodScope-Data\\raw\\sentinel1\\S1D_IW_GRDH_1SDV_20260816T122141_20260816T122206_004151_007980_B091_COG.zip",
+      "file_size_bytes": 1240792161,
+      "file_size_mb": 1183.31,
+      "sha256_checksum": "0821737491cc791f5bca5ac79ee70a8f3c3deed1ee4c04aae4f4b345e94ef550",
+      "download_timestamp": "2026-10-15T05:56:59.620059+00:00",
+      "processing_status": "acquired",
+      "validation": null,
+      "known_limitations": [
+        "Raw Sentinel-1 satellite archive (1.05 GB); retained on local workstation storage, not bundled in lightweight cloud deployment image."
+      ],
+      "product_category": "source",
+      "format_label": "Sentinel-1 archive or packaged product"
+    },
+    "9e6c24a1-24ca-419f-bcec-db66791dcf19": {
+      "product_id": "9e6c24a1-24ca-419f-bcec-db66791dcf19",
+      "source_catalog": "Copernicus Data Space Ecosystem (CDSE)",
+      "acquisition_time": "2026-08-28T12:21:41.762029Z",
+      "original_filename": "S1D_IW_GRDH_1SDV_20260828T122141_20260828T122206_004326_007FA4_C73B_COG.zip",
+      "local_path": "D:\\FloodScope-Data\\raw\\sentinel1\\S1D_IW_GRDH_1SDV_20260828T122141_20260828T122206_004326_007FA4_C73B_COG.zip",
+      "file_size_bytes": 1238165967,
+      "file_size_mb": 1180.81,
+      "sha256_checksum": "1f2d8613d9a02d43d6da7c15a9439fa9b7e470a2839f0f725b79082ecd398ac5",
+      "download_timestamp": "2026-10-15T05:56:59.620630+00:00",
+      "processing_status": "acquired",
+      "validation": null,
+      "known_limitations": [
+        "Raw Sentinel-1 satellite archive (1.05 GB); retained on local workstation storage, not bundled in lightweight cloud deployment image."
+      ],
+      "product_category": "source",
+      "format_label": "Sentinel-1 archive or packaged product"
+    },
+    "S1_SAR_Flood_Candidates_Raster_10m": {
+      "product_id": "S1_SAR_Flood_Candidates_Raster_10m",
+      "source_catalog": "Sentinel-1 Differential Change Inundation Mask",
+      "acquisition_time": "2026-08-16 / 2026-08-28",
+      "original_filename": "s1_sar_flood_candidates_10m.tif",
+      "local_path": "data/processed/sentinel1/s1_sar_flood_candidates_10m.tif",
+      "file_size_bytes": 3002778,
+      "file_size_mb": 2.863,
+      "sha256_checksum": "115b217fb0fd1edc27bf6d44bced8b7498eaedadaa7097ed80e399a724350545",
+      "download_timestamp": "2026-10-15T06:06:18+00:00",
+      "processing_status": "derived_product",
+      "validation": {
+        "file_path": "C:\\Users\\sarvesh\\OneDrive\\Desktop\\FloodScope-AI\\data\\processed\\sentinel1\\s1_sar_flood_candidates_10m.tif",
+        "file_size_bytes": 3002778,
+        "file_size_mb": 2.86,
+        "sha256_checksum": "115b217fb0fd1edc27bf6d44bced8b7498eaedadaa7097ed80e399a724350545",
+        "is_readable": true,
+        "driver": "GTiff",
+        "width": 1500,
+        "height": 2000,
+        "band_count": 1,
+        "dtype": "uint8",
+        "crs": "EPSG:4326",
+        "geotransform": [
+          0.00010000000000000379,
+          0.0,
+          85.1,
+          0.0,
+          -9.999999999999964e-05,
+          28.05
+        ],
+        "bounds": [
+          85.1,
+          27.85,
+          85.25,
+          28.05
+        ],
+        "pixel_resolution": [
+          0.0001,
+          0.0001
+        ],
+        "nodata_value": 0.0,
+        "valid_data_percent": 1.0,
+        "intersects_aoi": true,
+        "is_measurement_data": true,
+        "is_valid_cog": false,
+        "validation_warnings": [
+          "Raster does not have standard COG internal overviews/tiling layout.",
+          "Very low valid data coverage (1.0%)."
+        ],
+        "validated_at": "2026-10-16T17:00:50.111107+00:00"
+      },
+      "known_limitations": [
+        "Single-band candidate inundation raster mask (0=excluded, 1=permanent water, 2=flood candidate); bundled in deployment repository."
+      ],
+      "product_category": "derived",
+      "format_label": "GeoTIFF"
+    },
+    "S1_SAR_Flood_Candidates_Vector_GeoJSON": {
+      "product_id": "S1_SAR_Flood_Candidates_Vector_GeoJSON",
+      "source_catalog": "Sentinel-1 Vectorized Candidate Polygons",
+      "acquisition_time": "2026-08-16 / 2026-08-28",
+      "original_filename": "s1_sar_flood_candidates.geojson",
+      "local_path": "data/processed/sentinel1/s1_sar_flood_candidates.geojson",
+      "file_size_bytes": 395593,
+      "file_size_mb": 0.377,
+      "sha256_checksum": "14779bae7ced5ef5982b31df99692bfc2e73b4d82f4e9b816790921ce12d56a8",
+      "download_timestamp": "2026-10-15T06:06:18+00:00",
+      "processing_status": "derived_product",
+      "validation": null,
+      "known_limitations": [
+        "Vectorized candidate flood extent (295 polygon features >= 5 pixels / ~547 m^2); bundled in deployment repository."
+      ],
+      "product_category": "derived",
+      "format_label": "GeoJSON FeatureCollection"
+    },
+    "S1_SAR_Change_Summary_Report": {
+      "product_id": "S1_SAR_Change_Summary_Report",
+      "source_catalog": "Sentinel-1 Bitemporal Differential Change (Aug 16 vs Aug 28, 2026)",
+      "acquisition_time": "2026-08-16T12:21:41Z / 2026-08-28T12:21:41Z",
+      "original_filename": "s1_sar_change_summary.json",
+      "local_path": "data/processed/sentinel1/s1_sar_change_summary.json",
+      "file_size_bytes": 1800,
+      "file_size_mb": 0.002,
+      "sha256_checksum": "4300f689c107ca37af292bb75e54c69a8773041b36f5f478aaf4bf3778fbfa3d",
+      "download_timestamp": "2026-10-15T06:06:18+00:00",
+      "processing_status": "derived_product",
+      "validation": null,
+      "known_limitations": [
+        "Structured bitemporal change summary report with WGS84 area metrics (0.625 km^2); bundled in deployment repository."
+      ],
+      "product_category": "derived",
+      "format_label": "JSON analysis summary"
     }
   }
 }

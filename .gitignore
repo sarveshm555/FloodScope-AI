@@ -74,6 +74,12 @@ data/evaluation/*
 *.jp2
 *.img
 
+# Deployment SAR Artifacts (~3.24 MB lightweight verified deliverables)
+!data/processed/sentinel1/
+!data/processed/sentinel1/s1_sar_flood_candidates_10m.tif
+!data/processed/sentinel1/s1_sar_flood_candidates.geojson
+!data/processed/sentinel1/s1_sar_change_summary.json
+
 # Temporary and Cache directories
 cache/
 tmp/
