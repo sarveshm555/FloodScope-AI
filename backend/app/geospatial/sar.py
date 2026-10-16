@@ -242,12 +242,16 @@ def vectorize_candidate_mask(
     candidate_mask: np.ndarray,
     target_transform: rasterio.Affine,
     cell_area_m2: float,
-    min_area_m2: float = 50.0,
+    min_area_m2: float = 547.0,
     source_label: str = "Sentinel-1 C-SAR (Ascending Track 85)",
     pre_event_date: str = "2026-08-16T12:21:41Z",
     post_event_date: str = "2026-08-28T12:21:41Z",
 ) -> Dict[str, Any]:
-    """Vectorize candidate inundation raster mask into an RFC 7946 GeoJSON FeatureCollection."""
+    """Vectorize candidate inundation raster mask into an RFC 7946 GeoJSON FeatureCollection.
+
+    Filters out small noise polygons below min_area_m2 (default 547.0 m^2, corresponding to
+    5 pixels or 5e-8 deg^2 at 0.0001° grid spacing near study latitude ~28°N).
+    """
     candidate_uint8 = np.uint8(candidate_mask)
     candidate_shapes = shapes(
         candidate_uint8,
@@ -256,6 +260,7 @@ def vectorize_candidate_mask(
     )
 
     polygons: List[Polygon] = []
+    # min_area_deg: 547.0 m^2 / cell_area_m2 * pixel_area_deg ~= 5.0e-8 deg^2 (5 pixels)
     min_area_deg = min_area_m2 / max(cell_area_m2, 1e-6) * (abs(target_transform[0] * target_transform[4]))
 
     for geom, val in candidate_shapes:
@@ -439,7 +444,7 @@ def run_sar_change_detection(
         candidate_mask=flood_candidate_clean,
         target_transform=target_transform,
         cell_area_m2=cell_area_m2,
-        min_area_m2=50.0,
+        min_area_m2=547.0,
         pre_event_date=pre_event_date,
         post_event_date=post_event_date,
     )
@@ -509,6 +514,8 @@ def run_sar_change_detection(
             "permanent_water_exclusion": f"Pre-event baseline <= {permanent_water_threshold_db} dB",
             "pipeline_version": "0.1.0",
             "area_calculation_method": "WGS84 ellipsoidal geodesic",
+            "polygon_filtering_threshold": "5 pixels (~547 m^2 at ~28 deg N, 5e-8 deg^2)",
+            "spherical_reference_area_km2": round((candidate_pixels * 109.467) / 1e6, 3),
             "generated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
         },
         "results": {

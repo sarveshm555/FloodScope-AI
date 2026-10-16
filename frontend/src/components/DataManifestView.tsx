@@ -245,12 +245,12 @@ export const DataManifestView: React.FC = () => {
               </span>
             </div>
             <div>
-              <span className="text-slate-500">COG Conformance:</span>{' '}
+              <span className="text-slate-500">Internal Layout:</span>{' '}
               <span className="text-slate-300 font-mono text-[10px]">
                 {prod.validation.is_valid_cog
-                  ? 'Verified Full COG'
+                  ? 'Tiled + Front IFD (Structural)'
                   : prod.validation.validation_warnings.some((w) => w.includes('overviews'))
-                  ? 'Tiled + Overviews'
+                  ? 'Tiled + Overviews (Tail IFD)'
                   : 'Standard GeoTIFF'}
               </span>
             </div>
@@ -366,11 +366,11 @@ export const DataManifestView: React.FC = () => {
             </div>
             <div>
               <span className="text-slate-500">Candidate Area:</span>{' '}
-              <span className="text-emerald-400 font-semibold">0.63 km² (6,280 pixels)</span>
+              <span className="text-emerald-400 font-semibold">0.63 km² (5,735 pixels)</span>
             </div>
             <div>
               <span className="text-slate-500">Detection Drop:</span>{' '}
-              <span className="text-slate-300 font-mono">Δσ° ≤ -2.5 dB, σ°_post ≤ -11.5 dB</span>
+              <span className="text-slate-300 font-mono">Δσ° ≤ -2.5 dB, σ°_post ≤ -14.5 dB</span>
             </div>
             <div>
               <span className="text-slate-500">Slope Constraint:</span>{' '}
@@ -507,13 +507,13 @@ export const DataManifestView: React.FC = () => {
             <strong>Digital Surface Model (DSM) Distinction:</strong> Copernicus GLO-30 reflects radar canopy and physical surface return rather than bare-earth terrain (DTM). Dense tree cover along steep valleys may cause slight elevation overestimation.
           </li>
           <li>
-            <strong>Candidate Inundation vs Confirmed Flooding:</strong> Sentinel-1 change detection identifies specular surface water candidates (&Delta;&sigma;&deg; &le; -2.5 dB, &sigma;&deg; &le; -11.5 dB) filtered against steep mountain terrain (DEM slope &gt; 10&deg;). It does not confirm structural destruction or sub-canopy water presence.
+            <strong>Candidate Inundation vs Confirmed Flooding:</strong> Sentinel-1 change detection identifies specular surface water candidates (&Delta;&sigma;&deg; &le; -2.5 dB, &sigma;&deg; &le; -14.5 dB) filtered against steep mountain terrain (DEM slope &gt; 10&deg;). It does not confirm structural destruction or sub-canopy water presence.
           </li>
           <li>
             <strong>Scalar Calibration Approximation:</strong> Radiometric calibration uses A = 708.0 (scalar approximation for sub-swaths IW1–IW3). Differential bitemporal change (&Delta;&sigma;&deg;) mathematically cancels this constant in homogenous geometry.
           </li>
           <li>
-            <strong>Format Integrity:</strong> Only rasters verified with standard internal tiling and overviews are labeled Cloud Optimized GeoTIFF (COG). Standard rasters, GeoJSON vectors, and JSON summaries are accurately classified under their verified specifications.
+            <strong>Format & Layout Integrity:</strong> Rasters are classified by internal layout. DEM tiles with internal tiling, overviews, and front IFD are classified as Cloud Optimized GeoTIFF (COG); mosaicked rasters with tail IFD are classified as Tiled GeoTIFF with Overviews; single-band candidate outputs are classified as Standard GeoTIFF. Structural inspection verifies layout; formal third-party certification is not claimed based solely on custom inspection.
           </li>
         </ul>
       </div>

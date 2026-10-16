@@ -83,15 +83,16 @@ def test_summary_pixel_count_and_candidate_area_reconciliation(sar_paths):
 
     assert cell_area_spherical_m2 == pytest.approx(109.467, abs=1e-2)
     assert area_spherical_km2 == 0.628
-    assert summary_area_km2 == area_spherical_km2, "Summary 0.628 km^2 is derived from spherical cell projection"
+    assert summary.get("metadata", {}).get("spherical_reference_area_km2") == 0.628
 
-    # WGS84 Ellipsoidal geodesic integration:
+    # WGS84 Ellipsoidal geodesic integration (canonical implementation):
     dx_wgs84, dy_wgs84, cell_area_wgs84_m2 = compute_wgs84_cell_metrics(
         bounds.left, bounds.bottom, bounds.right, bounds.top, width, height
     )
     area_wgs84_km2 = round((raster_class2_pixels * cell_area_wgs84_m2) / 1e6, 3)
     assert cell_area_wgs84_m2 == pytest.approx(109.0536, abs=1e-3)
     assert area_wgs84_km2 == 0.625
+    assert summary_area_km2 == area_wgs84_km2 == 0.625, "Summary candidate flood area matches canonical WGS84 ellipsoidal geodesic calculation"
 
     # Difference between spherical and ellipsoidal projection is ~0.38% (0.0024 km^2)
     diff_km2 = abs(area_spherical_km2 - area_wgs84_km2)
@@ -119,7 +120,7 @@ def test_valid_data_percentage_and_nodata_handling(sar_paths):
 
 
 def test_raster_to_geojson_component_filtering_and_area(sar_paths):
-    """Verify component extraction, 50 m^2 filtering, and reconcile GeoJSON area difference."""
+    """Verify component extraction, 5-pixel (~547 m^2 / 5e-8 deg^2) filtering, and reconcile GeoJSON area difference."""
     raster_path = sar_paths["raster"]
     geojson_path = sar_paths["geojson"]
     if not raster_path.exists() or not geojson_path.exists():
@@ -139,8 +140,8 @@ def test_raster_to_geojson_component_filtering_and_area(sar_paths):
     retained = [shape(g) for g, v in extracted if v == 1 and shape(g).area > min_area_deg]
     discarded = [shape(g) for g, v in extracted if v == 1 and shape(g).area <= min_area_deg]
 
-    assert len(retained) == 295, "Expected exactly 295 retained components exceeding 50 m^2 (> 5 pixels)"
-    assert len(discarded) == 203, "Expected exactly 203 discarded noise components <= 50 m^2 (<= 5 pixels)"
+    assert len(retained) == 295, "Expected exactly 295 retained components exceeding 5 pixels (> 5e-8 deg^2 / ~547 m^2)"
+    assert len(discarded) == 203, "Expected exactly 203 discarded noise components <= 5 pixels (<= 5e-8 deg^2 / ~547 m^2)"
 
     # Area accounting (in spherical projection matching original generation)
     deg_to_m2 = 111320.0 * 111320.0 * np.cos(np.radians(27.95))
